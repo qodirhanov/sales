@@ -21,13 +21,14 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from django.views.generic import TemplateView
 
-from prices.web import AppPasswordChangeView, CategoryDetailView, IndexView, ProductDetailView, SettingsView, SignupView
+from prices.web import AppPasswordChangeView, CategoryDetailView, ConfirmPricesView, IndexView, ProductDetailView, SettingsView, SignupView
 
 urlpatterns = [
     path('', IndexView.as_view(), name='home'),
     path('product/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
     path('category/<slug:slug>/', CategoryDetailView.as_view(), name='category_detail'),
     # Saralangan va savat brauzerda (localStorage) saqlanadi; sahifalar API orqali to'ldiriladi.
+    path('tasdiqlash/', ConfirmPricesView.as_view(), name='confirm_prices'),
     path('favorites/', TemplateView.as_view(template_name='prices/favorites.html'), name='favorites'),
     path('cart/', TemplateView.as_view(template_name='prices/cart.html'), name='cart'),
     path('login/', auth_views.LoginView.as_view(

@@ -5,6 +5,8 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import PasswordChangeView
 from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import timedelta
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils.decorators import method_decorator
@@ -13,7 +15,8 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.generic import FormView, TemplateView
 
 from .models import Category, PriceEntry, Product, Profile
-from .services import build_offers, category_product_count, recent_entries
+from .models import PriceConfirmation
+from .services import CONFIRMATIONS_TO_UNFLAG, build_offers, category_product_count, recent_entries
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")  # JS reads csrftoken cookie for POST /api/prices/
@@ -163,3 +166,37 @@ class AppPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
     def form_valid(self, form):
         messages.success(self.request, "Parol muvaffaqiyatli o'zgartirildi.")
         return super().form_valid(form)
+
+
+def _spaced(n):
+    return f"{int(n):,}".replace(",", " ")
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")  # JS posts to /api/prices/<id>/confirm/
+class ConfirmPricesView(LoginRequiredMixin, TemplateView):
+    """Recent prices by other people that this user has not confirmed yet; suspicious ones first."""
+    template_name = "prices/confirm.html"
+    login_url = "/login/"
+    LIMIT = 30
+    DAYS = 7
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        user = self.request.user
+        entries = (
+            PriceEntry.objects
+            .filter(created_at__gte=timezone.now() - timedelta(days=self.DAYS),
+                    product__is_active=True, location__is_active=True)
+            .exclude(user=user).exclude(confirmations__user=user)
+            .select_related("product", "location__district")
+            .annotate(n_confirmed=Count("confirmations"))
+            .order_by("-is_flagged", "n_confirmed", "-created_at", "-id")[:self.LIMIT]
+        )
+        ctx["items"] = [
+            {"entry": e, "count": e.n_confirmed, "price_text": _spaced(e.price),
+             "quantity": f"{e.quantity.normalize():f}",
+             "need_more": max(0, CONFIRMATIONS_TO_UNFLAG - e.n_confirmed) if e.is_flagged else 0}
+            for e in entries
+        ]
+        ctx["my_confirmed"] = PriceConfirmation.objects.filter(user=user).count()
+        return ctx

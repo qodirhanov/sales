@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Narx kuzatuvchi{% endblock %}</title>
+{% block head %}{% endblock %}
 <style>
   :root {
     --bg: #f6f5f1; --card: #ffffff; --text: #1d1d1b; --muted: #6b6a65; --line: #e6e4dd;
@@ -268,6 +269,7 @@
     <span class="loc">Toshkent</span>
     <nav>
       <a href="/">Bosh sahifa</a>
+      <a href="{% url 'confirm_prices' %}">Narx to'g'rimi?</a>
       <a href="/#products">Mahsulotlar</a>
       <a href="/#add-form">Narx qo'shish</a>
     </nav>

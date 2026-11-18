@@ -272,3 +272,40 @@ class PrefixRankingTests(BaseData):
         self.assertEqual(names, ["Sumalak", "Sumka", "Qo'l sumka"])
         names = [p["name"] for p in self.client.get("/api/products/", {"search": "SUMK"}).data["results"]]
         self.assertEqual(names, ["Sumka", "Qo'l sumka"])
+
+
+class ConfirmPageTests(BaseData):
+    def setUp(self):
+        self.viewer = User.objects.create_user("viewer", password="pw")
+
+    def test_requires_login(self):
+        r = self.client.get("/tasdiqlash/")
+        self.assertEqual(r.status_code, 302)
+        self.assertIn("/login/", r["Location"])
+
+    def test_lists_others_entries_flagged_first_and_hides_own_and_done(self):
+        for _ in range(3):
+            self.make(price=100000)
+        odd = self.make(price=400000)            # flagged outlier by another user
+        normal = self.make(location=self.loc_b, price=101000)
+        own = PriceEntry.objects.create(product=self.meat, location=self.loc_c, user=self.viewer,
+                                        price=99000, quantity=1, unit="kg")
+        from .models import PriceConfirmation
+        done = self.make(location=self.loc_c, price=102000)
+        PriceConfirmation.objects.create(entry=done, user=self.viewer)
+
+        self.client.force_login(self.viewer)
+        r = self.client.get("/tasdiqlash/")
+        self.assertEqual(r.status_code, 200)
+        ids = [i["entry"].pk for i in r.context["items"]]
+        self.assertEqual(ids[0], odd.pk)                       # suspicious first
+        self.assertNotIn(own.pk, ids)
+        self.assertNotIn(done.pk, ids)
+        self.assertIn(normal.pk, ids)
+        self.assertEqual(r.context["my_confirmed"], 1)
+        self.assertContains(r, "400 000")
+        self.assertContains(r, "Narx to'g'rimi?")
+
+    def test_empty_state(self):
+        self.client.force_login(self.viewer)
+        self.assertContains(self.client.get("/tasdiqlash/"), "Daftar toza")
