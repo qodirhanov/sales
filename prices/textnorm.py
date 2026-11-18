@@ -23,9 +23,11 @@ _NON_ALNUM = re.compile(r"[\W_]+", re.UNICODE)
 def normalize_text(value):
     if not value:
         return ""
-    text = unicodedata.normalize("NFKD", str(value)).casefold()
-    text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = "".join(_CYR.get(ch, ch) for ch in text)
+    # Transliterate Cyrillic FIRST: NFKD would split "ў" into "у" + a combining mark and lose the "o" sound.
+    text = "".join(_CYR.get(ch, ch) for ch in str(value).casefold())
+    text = unicodedata.normalize("NFKD", text)
+    # Drop accents and modifier letters (category Lm): the Uzbek apostrophes U+02BB / U+02BC count as "letters".
+    text = "".join(ch for ch in text if not unicodedata.combining(ch) and unicodedata.category(ch) != "Lm")
     return _NON_ALNUM.sub("", text)  # drops spaces, apostrophes, hyphens, punctuation
 
 

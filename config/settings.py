@@ -42,7 +42,11 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
-    'prices',
+    'prices',  # legacy app, replaced step by step by apps.*
+    'apps.accounts',
+    'apps.catalog',
+    'apps.reports',
+    'apps.stats',
 ]
 
 MIDDLEWARE = [
@@ -113,6 +117,11 @@ LANGUAGE_CODE = 'uz'
 TIME_ZONE = 'Asia/Tashkent'
 
 USE_I18N = True
+
+# i18n is ready: user-facing strings use gettext (Uzbek Latin is the source language);
+# Russian / Uzbek Cyrillic are added later as locale/<lang>/LC_MESSAGES/django.po.
+LANGUAGES = [('uz', "O'zbekcha")]
+LOCALE_PATHS = [BASE_DIR / 'locale']
 
 USE_TZ = True
 
