@@ -1,0 +1,314 @@
+{% extends "prices/base.html" %}
+{% block content %}
+<h1 class="page-title">Toshkentda mahsulot narxlari</h1>
+
+<section aria-labelledby="cats-h">
+  <div class="cat-grid" id="cats">
+    {% for c in categories %}
+    <a class="cat-tile" href="{% url 'category_detail' c.slug %}">
+      <strong>{{ c.name }}</strong>
+      <small>{{ c.product_count }} ta mahsulot</small>
+      {% if c.image %}<img src="{{ c.image.url }}" alt="" loading="lazy">{% elif c.emoji %}<span class="em" aria-hidden="true">{{ c.emoji }}</span>{% endif %}
+    </a>
+    {% endfor %}
+    <a class="cat-tile all" href="#compare"><strong>Narxlarni taqqoslash →</strong><span class="em" aria-hidden="true">📊</span></a>
+  </div>
+</section>
+
+<section aria-labelledby="deals-h">
+  <div class="section-head">
+    <h2 id="deals-h">Arzon va aksiyadagi mahsulotlar</h2>
+    <div class="tabs" id="deal-tabs" role="group" aria-label="Filtr">
+      <button class="tab" type="button" data-reason="all" aria-pressed="true">Hammasi</button>
+      <button class="tab" type="button" data-reason="promo" aria-pressed="false">Aksiya</button>
+      <button class="tab" type="button" data-reason="cheaper" aria-pressed="false">Boshqa joydan arzon</button>
+    </div>
+  </div>
+  <div id="deals" class="deal-grid"></div>
+  <p id="deals-empty" class="empty" hidden>Hozircha bunday mahsulotlar yo'q.</p>
+</section>
+
+<section class="card" id="compare">
+  <div class="row" style="justify-content:space-between;margin-bottom:12px">
+    <h2 style="margin:0">Mahsulotni tanlang</h2>
+    <label style="flex-direction:row;display:flex;align-items:center;gap:8px;width:auto">
+      Tuman
+      <select id="district" style="width:auto"><option value="">Hammasi</option></select>
+    </label>
+  </div>
+  <div id="products" class="chips"><span class="muted">Yuklanmoqda…</span></div>
+</section>
+
+<div class="layout">
+  <section class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0" id="cheapest-title">Eng arzon joylar</h2>
+      <select id="days" style="width:auto">
+        <option value="7">So'nggi 7 kun</option>
+        <option value="30">So'nggi 30 kun</option>
+      </select>
+    </div>
+    <ul id="cheapest" class="list"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Narx qo'shish</h2>
+    {% if user.is_authenticated and user.profile.is_seller %}
+    <form id="add-form">
+      <label>Bozor / do'kon<select id="f-location" required></select></label>
+      <div class="grid2">
+        <label>Narx (so'm)<input id="f-price" type="number" min="1" step="1" inputmode="numeric" required placeholder="95000"></label>
+        <label>Miqdor<input id="f-quantity" type="number" min="0.001" step="any" value="1" required></label>
+      </div>
+      <label>Birlik<select id="f-unit" required></select></label>
+      <label class="check"><input id="f-promo" type="checkbox"> Aksiya narxi</label>
+      <div id="promo-fields" class="promo-fields" hidden>
+        <label>Eski narx (so'm)<input id="f-old" type="number" min="1" step="1" inputmode="numeric" placeholder="120000"></label>
+      </div>
+      <label>Mahsulot havolasi (ixtiyoriy)<input id="f-url" type="url" maxlength="500" placeholder="https://uzum.uz/..."></label>
+      <button class="btn primary" type="submit">Saqlash</button>
+      <p id="f-msg" class="muted" role="status"></p>
+    </form>
+    {% elif user.is_authenticated %}
+    <p class="muted">Siz haridor sifatida kirgansiz — narx faqat sotuvchilar kiritadi.</p>
+    <a class="btn primary" href="{% url 'settings' %}">Sotuvchi bo'lish</a>
+    {% else %}
+    <p class="muted">Narx qo'shish uchun <a href="/login/?next=/">tizimga kiring</a>
+      yoki <a href="/signup/">ro'yxatdan o'ting</a>.</p>
+    {% endif %}
+  </section>
+</div>
+
+<section class="card">
+  <h2 id="trend-title">Narx o'zgarishi (30 kun, median)</h2>
+  <div class="chart-box"><canvas id="chart"></canvas></div>
+  <p id="trend-empty" class="muted" hidden>Bu mahsulot uchun hali ma'lumot yo'q.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+const UNITS = { kg: ["kg", "g"], l: ["l", "ml"], piece: ["piece"] };
+const UNIT_LABEL = { kg: "kg", g: "g", l: "litr", ml: "ml", piece: "dona" };
+const TYPE_LABEL = { bazaar: "Bozor", shop: "Do'kon" };
+const state = { products: [], product: null, district: "", days: 7, chart: null };
+
+const $ = (id) => document.getElementById(id);
+const money = (n) => Math.round(Number(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+function ago(iso) {
+  const mins = Math.floor((Date.now() - new Date(iso)) / 60000);
+  if (mins < 1) return "hozirgina";
+  if (mins < 60) return `${mins} daqiqa oldin`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h} soat oldin`;
+  return `${Math.floor(h / 24)} kun oldin`;
+}
+
+function cookie(name) {
+  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+async function api(path) {
+  const r = await fetch("/api/" + path, { headers: { Accept: "application/json" } });
+  if (!r.ok) throw new Error(r.status);
+  const data = await r.json();
+  return Array.isArray(data) ? data : (data.results ?? data);
+}
+
+async function init() {
+  const [products, districts, locations] = await Promise.all([
+    api("products/?page_size=200"), api("districts/"), api("locations/"),
+  ]);
+  state.products = products;
+  $("district").innerHTML += districts.map((d) => `<option value="${d.id}">${esc(d.name)}</option>`).join("");
+  if ($("f-location")) {
+    $("f-location").innerHTML = locations.map((l) =>
+      `<option value="${l.id}">${esc(l.name)} — ${esc(l.district_name)}</option>`).join("");
+  }
+  $("products").innerHTML = products.map((p) =>
+    `<button class="chip" data-id="${p.id}" aria-pressed="false">${esc(p.name)}</button>`).join("");
+  $("products").addEventListener("click", (e) => {
+    const b = e.target.closest(".chip");
+    if (b) selectProduct(Number(b.dataset.id));
+  });
+  $("district").addEventListener("change", (e) => { state.district = e.target.value; refresh(); });
+  $("days").addEventListener("change", (e) => { state.days = Number(e.target.value); loadCheapest(); });
+  if ($("add-form")) {
+    $("add-form").addEventListener("submit", submitPrice);
+    $("f-promo").addEventListener("change", (e) => { $("promo-fields").hidden = !e.target.checked; });
+  }
+  if (products.length) selectProduct(products[0].id);
+}
+
+function selectProduct(id) {
+  state.product = state.products.find((p) => p.id === id);
+  document.querySelectorAll("#products .chip").forEach((c) =>
+    c.setAttribute("aria-pressed", String(Number(c.dataset.id) === id)));
+  if ($("f-unit")) {
+    $("f-unit").innerHTML = UNITS[state.product.base_unit].map((u) =>
+      `<option value="${u}">${UNIT_LABEL[u]}</option>`).join("");
+  }
+  refresh();
+}
+
+function refresh() { loadCheapest(); loadTrend(); }
+
+function qs() {
+  const p = new URLSearchParams();
+  if (state.district) p.set("district", state.district);
+  return p;
+}
+
+async function loadCheapest() {
+  const p = state.product;
+  $("cheapest-title").textContent = `Eng arzon: ${p.name}`;
+  const params = qs(); params.set("days", state.days);
+  const data = await api(`products/${p.id}/cheapest/?${params}`);
+  const unit = UNIT_LABEL[p.base_unit];
+  if (!data.length) {
+    $("cheapest").innerHTML = `<li style="display:block" class="muted">So'nggi ${state.days} kunda narx kiritilmagan. Birinchi bo'lib qo'shing!</li>`;
+    return;
+  }
+  $("cheapest").innerHTML = data.map((r, i) => {
+    const old = (Date.now() - new Date(r.created_at)) > 3 * 86400000;
+    return `<li class="${i === 0 ? "best" : ""}">
+      <span class="rank">${i + 1}</span>
+      <span><strong>${esc(r.location.name)}</strong><br>
+        <span class="muted">${TYPE_LABEL[r.location.type] || ""} · ${esc(r.location.district_name)}</span>
+        <span class="badge ${old ? "old" : ""}">${ago(r.created_at)}</span></span>
+      <span class="price">${money(r.normalized_price)} <small>so'm/${unit}</small></span>
+    </li>`;
+  }).join("");
+}
+
+async function loadTrend() {
+  const p = state.product;
+  const params = qs(); params.set("days", 30);
+  const r = await fetch(`/api/products/${p.id}/trend/?${params}`).then((x) => x.json());
+  const pts = r.points || [];
+  $("trend-empty").hidden = pts.length > 0;
+  document.querySelector(".chart-box").hidden = pts.length === 0;
+  const css = getComputedStyle(document.documentElement);
+  const accent = css.getPropertyValue("--accent").trim();
+  const muted = css.getPropertyValue("--muted").trim();
+  const line = css.getPropertyValue("--line").trim();
+  const cfg = {
+    type: "line",
+    data: {
+      labels: pts.map((x) => x.date.slice(5).split("-").reverse().join(".")),
+      datasets: [{
+        label: `Median, so'm/${UNIT_LABEL[p.base_unit]}`,
+        data: pts.map((x) => Number(x.median_price)),
+        borderColor: accent, backgroundColor: accent, tension: 0.25, pointRadius: 4,
+        segment: { borderDash: (ctx) => (pts[ctx.p1DataIndex]?.live ? [5, 4] : undefined) },
+      }],
+    },
+    options: {
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: {
+          label: (c) => `${money(c.parsed.y)} so'm` + (pts[c.dataIndex].live ? " (bugun, hali yakunlanmagan)" : ""),
+        } },
+      },
+      scales: {
+        x: { ticks: { color: muted }, grid: { color: line } },
+        y: { ticks: { color: muted, callback: (v) => money(v) }, grid: { color: line } },
+      },
+    },
+  };
+  if (state.chart) state.chart.destroy();
+  state.chart = new Chart($("chart"), cfg);
+}
+
+async function submitPrice(e) {
+  e.preventDefault();
+  const msg = $("f-msg");
+  msg.className = "muted"; msg.textContent = "Saqlanmoqda…";
+  const body = {
+    product: state.product.id,
+    location: Number($("f-location").value),
+    price: $("f-price").value,
+    quantity: $("f-quantity").value,
+    unit: $("f-unit").value,
+    is_promo: $("f-promo").checked,
+  };
+  if ($("f-promo").checked && $("f-old").value) body.old_price = $("f-old").value;
+  if ($("f-url").value.trim()) body.source_url = $("f-url").value.trim();
+  const r = await fetch("/api/prices/", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": cookie("csrftoken") },
+    body: JSON.stringify(body),
+  });
+  if (r.ok) {
+    msg.className = "ok"; msg.textContent = "✓ Rahmat! Narx saqlandi.";
+    $("f-price").value = ""; $("f-old").value = ""; $("f-url").value = "";
+    refresh(); loadDeals();
+  } else if (r.status === 429) {
+    msg.className = "error"; msg.textContent = "Juda ko'p narx kiritildi. Birozdan keyin urinib ko'ring.";
+  } else {
+    const err = await r.json().catch(() => ({}));
+    msg.className = "error";
+    msg.textContent = "Xato: " + Object.values(err).flat().join(" ");
+  }
+}
+
+/* ---- deals grid ---- */
+let dealReason = "all";
+function safeUrl(u) { return /^https?:\/\//i.test(u || "") ? u : "#"; }
+
+function dealCard(d) {
+  const p = d.product, o = d.offer, loc = o.location;
+  const unit = o.unit_label || UNIT_LABEL[o.unit] || o.unit;
+  const tag = d.reason === "promo"
+    ? `<span class="tag">−${Math.round(o.discount_pct || d.saving_pct || 0)}%</span>`
+    : `<span class="tag cheap">${Math.round(d.saving_pct)}% arzon</span>`;
+  const pic = p.image
+    ? `<img src="${esc(p.image)}" alt="${esc(p.name)}" loading="lazy">`
+    : `<span class="ph" aria-hidden="true">${esc(p.name.slice(0, 1).toUpperCase())}</span>`;
+  const was = o.old_price ? `<span class="was">${money(o.old_price)}</span>` : "";
+  const goLabel = o.link_kind === "store" ? "Do'konga o'tish ↗" : "Xaritada ko'rish ↗";
+  return `<article class="pcard">
+    ${tag}
+    <button class="heart" type="button" data-fav="${p.id}" aria-pressed="false" aria-label="Saralanganlarga qo'shish"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 000-7.8z"/></svg></button>
+    <div class="pic">${pic}</div>
+    <div class="body">
+      <a class="name" href="/product/${p.id}/">${esc(p.name)}</a>
+      <div class="now">${money(o.price)} <small>so'm / ${o.quantity == 1 ? "" : Number(o.quantity) + " "}${esc(unit)}</small>${was}</div>
+      <div class="where">${TYPE_LABEL[loc.type] || ""} · ${esc(loc.name)}${loc.district_name ? ", " + esc(loc.district_name) : ""}</div>
+      <div class="card-acts">
+        <button class="tocart" type="button" data-cart="${p.id}"><span class="lbl">Savatga</span></button>
+        <a class="go ${o.link_kind === "store" ? "" : "map"}" href="${esc(safeUrl(o.link))}" target="_blank" rel="noopener noreferrer">${goLabel}</a>
+      </div>
+    </div>
+  </article>`;
+}
+
+async function loadDeals() {
+  try {
+    const data = await api(`deals/?reason=${dealReason}&limit=12`);
+    $("deals").innerHTML = data.map(dealCard).join("");
+    NK.sync();
+    $("deals-empty").hidden = data.length > 0;
+  } catch (e) {
+    $("deals").innerHTML = "";
+    $("deals-empty").hidden = false;
+    $("deals-empty").textContent = "Ma'lumotni yuklab bo'lmadi.";
+  }
+}
+$("deal-tabs").addEventListener("click", (e) => {
+  const b = e.target.closest(".tab");
+  if (!b) return;
+  dealReason = b.dataset.reason;
+  document.querySelectorAll("#deal-tabs .tab").forEach((t) => t.setAttribute("aria-pressed", String(t === b)));
+  loadDeals();
+});
+loadDeals();
+
+init().catch(() => { $("products").innerHTML = '<span class="error">Ma\'lumotni yuklab bo\'lmadi. Server ishlayaptimi?</span>'; });
+</script>
+{% endblock %}

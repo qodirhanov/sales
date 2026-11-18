@@ -1,0 +1,114 @@
+{% extends "prices/base.html" %}
+{% block title %}Savat — Narx kuzatuvchi{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Yo'l"><a href="/">Bosh sahifa</a> <span>›</span> <span>Savat</span></nav>
+<h1 class="page-title">Savat</h1>
+<div id="cart-list" class="list-page"></div>
+<section id="cart-sum" class="card summary" hidden>
+  <div><div class="muted">Taxminiy jami (eng arzon narxlar bo'yicha)</div><div class="sum" id="sum">0 so'm</div></div>
+  <button class="btn danger" type="button" id="clear">Savatni tozalash</button>
+</section>
+<section id="basket" class="card" hidden>
+  <h2>Qaysi do'konda arzon?</h2>
+  <p class="muted" id="basket-note"></p>
+  <ul id="basket-list" class="list"></ul>
+</section>
+<p id="cart-empty" class="empty" hidden>Savat bo'sh. Mahsulot kartochkasidagi «Savatga» tugmasini bosing.
+  <br><a class="btn primary" style="display:inline-block;margin-top:12px;text-decoration:none" href="/">Mahsulotlarga o'tish</a></p>
+<p class="muted">Bu sayt narxlarni solishtiradi: savat to'lov qilmaydi, faqat xaridingizni rejalashtirishga yordam beradi.
+  Sotib olish uchun mahsulotning «Do'konga o'tish» havolasidan foydalaning.</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const money = (n) => Math.round(Number(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const UL = { kg: "kg", l: "litr", piece: "dona" };
+const cache = {};
+const safeUrl = (u) => (/^https?:\/\//i.test(u || "") ? u : "#");
+
+async function info(id) {
+  if (cache[id]) return cache[id];
+  const [p, best] = await Promise.all([
+    fetch(`/api/products/${id}/`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch(`/api/products/${id}/cheapest/?days=30`).then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]);
+  return (cache[id] = { p, offer: best && best.results && best.results[0] });
+}
+
+async function render() {
+  const cart = NK.cart();
+  const ids = Object.keys(cart);
+  document.getElementById("cart-empty").hidden = ids.length > 0;
+  document.getElementById("cart-sum").hidden = ids.length === 0;
+  let total = 0;
+  const rows = await Promise.all(ids.map(async (id) => {
+    const d = await info(id);
+    if (!d.p) return "";
+    const p = d.p, o = d.offer, qty = cart[id], unit = UL[p.base_unit] || p.base_unit;
+    const line = o ? Number(o.normalized_price) * qty : 0;
+    total += line;
+    const pic = p.image ? `<img src="${esc(p.image)}" alt="">` : esc(p.name.slice(0, 1).toUpperCase());
+    const where = o ? `${esc(o.location.name)} · ${money(o.normalized_price)} so'm / ${unit}` : "Narx hali kiritilmagan";
+    const go = o ? `<a class="linkbtn" href="${esc(safeUrl(o.link))}" target="_blank" rel="noopener noreferrer">${o.link_kind === "store" ? "Do'konga o'tish ↗" : "Xaritada ↗"}</a>` : "";
+    return `<div class="row-item">
+      <div class="thumb">${pic}</div>
+      <div><a class="t" href="/product/${id}/">${esc(p.name)}</a><div class="s">${where}</div>${go}</div>
+      <div class="end">
+        <div class="qty" data-id="${id}">
+          <button type="button" data-step="-1" aria-label="Kamaytirish">−</button>
+          <input type="number" min="0.1" step="any" value="${qty}" aria-label="Miqdor (${unit})">
+          <button type="button" data-step="1" aria-label="Ko'paytirish">+</button>
+        </div>
+        <div><strong>${o ? money(line) + " so'm" : "—"}</strong> <span class="muted">/ ${qty} ${unit}</span></div>
+        <button class="linkbtn" type="button" data-remove="${id}">O'chirish</button>
+      </div></div>`;
+  }));
+  document.getElementById("cart-list").innerHTML = rows.join("");
+  document.getElementById("sum").textContent = money(total) + " so'm";
+}
+
+async function renderBasket() {
+  const cart = NK.cart();
+  const ids = Object.keys(cart);
+  const box = document.getElementById("basket");
+  if (!ids.length) { box.hidden = true; return; }
+  const body = { items: ids.map((id) => ({ product: Number(id), quantity: Number(cart[id]) })) };
+  const r = await fetch("/api/basket/compare/", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+  if (!r || !r.stores.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const names = r.products;
+  const best = r.stores.find((s) => s.complete);
+  document.getElementById("basket-note").textContent = best
+    ? `Hamma mahsulot bitta joyda eng arzon: ${best.location.name} — ${money(best.total)} so'm.` +
+      (Number(r.split_saving) > 0 ? ` Do'konma-do'kon yursangiz yana ${money(r.split_saving)} so'm tejaysiz (${money(r.split_total)} so'm).` : "")
+    : "Savatdagi hamma mahsulot bitta do'konda topilmadi. Quyida eng to'liq do'konlar.";
+  document.getElementById("basket-list").innerHTML = r.stores.slice(0, 8).map((s, i) => {
+    const miss = s.missing.length ? `<span class="muted"> · yo'q: ${s.missing.map((m) => esc((names[m] || {}).name || m)).join(", ")}</span>` : "";
+    const badge = s.complete && s === best ? ` <span class="badge">Eng arzon</span>` : "";
+    return `<li style="display:block"><a href="${esc(safeUrl(s.link))}" target="_blank" rel="noopener noreferrer"><strong>${esc(s.location.name)}</strong></a>${badge}
+      <div><strong>${money(s.total)} so'm</strong>${miss}</div></li>`;
+  }).join("");
+}
+
+document.getElementById("cart-list").addEventListener("click", (e) => {
+  const rm = e.target.closest("[data-remove]");
+  if (rm) return NK.removeCart(rm.dataset.remove);
+  const st = e.target.closest("[data-step]");
+  if (st) {
+    const box = st.closest(".qty"), id = box.dataset.id;
+    NK.setQty(id, Number(NK.cart()[id]) + Number(st.dataset.step));
+  }
+});
+document.getElementById("cart-list").addEventListener("change", (e) => {
+  const box = e.target.closest(".qty");
+  if (box && e.target.matches("input")) NK.setQty(box.dataset.id, Number(e.target.value) || 1);
+});
+document.getElementById("clear").addEventListener("click", () => { if (confirm("Savatdagi hamma mahsulotni o'chirasizmi?")) NK.clearCart(); });
+document.addEventListener("nk:change", () => { render(); renderBasket(); });
+render();
+renderBasket();
+</script>
+{% endblock %}
