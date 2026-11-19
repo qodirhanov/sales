@@ -255,3 +255,20 @@ class FaviconTests(TestCase):
         r = self.client.get("/favicon.ico")
         self.assertEqual(r.status_code, 301)
         self.assertTrue(r["Location"].endswith("/static/img/favicon.svg"))
+
+
+class AddFormPlacesTests(ParityBase):
+    """The add-price form lists every place; the API paginates at 20 unless asked for more."""
+
+    def test_home_asks_for_the_full_place_list(self):
+        self.assertContains(self.client.get("/"), 'api("locations/?page_size=200")')
+
+    def test_both_apis_return_all_places_with_page_size(self):
+        from apps.catalog.models import City, Place
+        city = City.objects.get()
+        for i in range(25):
+            Place.objects.create(name=f"Joy {i}", type="shop", city=city)
+        new = self.api.get("/api/v2/locations/?page_size=200").json()
+        self.assertEqual(new["count"], 28)
+        self.assertEqual(len(new["results"]), 28)
+        self.assertEqual(len(self.api.get("/api/v2/locations/").json()["results"]), 20)

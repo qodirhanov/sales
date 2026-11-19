@@ -93,7 +93,7 @@ const $ = (id) => document.getElementById(id);
 
 async function init() {
   const [products, districts, locations] = await Promise.all([
-    api("products/?page_size=200"), api("districts/"), api("locations/"),
+    api("products/?page_size=200"), api("districts/"), api("locations/?page_size=200"),
   ]);
   state.products = products;
   $("district").innerHTML = '<option value="">Hammasi</option>' +
