@@ -180,7 +180,9 @@ class ConfirmPricesView(LoginRequiredMixin, TemplateView):
             .order_by("-is_flagged", "n_confirmed", "-created_at", "-id")[:self.LIMIT]
         )
         ctx["items"] = [
-            {"entry": e, "count": e.n_confirmed, "price_text": _spaced(e.price),
+            {"entry": e, "product": e.product.name, "place": f"{e.location.name}, {e.location.district.name}",
+             "unit": e.get_unit_display(), "created_at": e.created_at, "flagged": e.is_flagged,
+             "count": e.n_confirmed, "price_text": _spaced(e.price),
              "quantity": f"{e.quantity.normalize():f}",
              "need_more": max(0, CONFIRMATIONS_TO_UNFLAG - e.n_confirmed) if e.is_flagged else 0}
             for e in entries

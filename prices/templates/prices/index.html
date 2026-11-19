@@ -52,9 +52,7 @@
 
   <section class="card" id="add-price">
     <h2>Narx qo'shish</h2>
-    {% if USE_NEW_API %}
-    <p class="muted">Narx kiritish yangi tizimga o'tkazilmoqda. Hozircha faqat ko'rish mumkin.</p>
-    {% elif user.is_authenticated %}
+    {% if user.is_authenticated %}
     <form id="add-form">
       <label>Mahsulot<select id="f-product" required></select></label>
       <label>Bozor / do'kon<select id="f-location" required></select></label>
@@ -164,6 +162,30 @@ async function loadCheapest() {
   }).join("");
 }
 
+/* New system only: the browser location proves the reporter is at the place (500 m rule). Without it the
+   report is still accepted, but earns no points and counts as less trustworthy. */
+function whereAmI() {
+  return new Promise((resolve) => {
+    if (!NK.NEW_API || !navigator.geolocation) return resolve(null);
+    navigator.geolocation.getCurrentPosition((p) => resolve(p.coords), () => resolve(null), { timeout: 8000, maximumAge: 60000 });
+  });
+}
+
+function savedMessage(r) {
+  let t = "✓ Rahmat! Narx saqlandi.";
+  if (!r || !r.status) return t;
+  if (r.status === "flagged") t += " Bu narx g'alati ko'rindi: boshqalar tasdiqlamaguncha ko'rinmaydi.";
+  else if (r.is_far) t += " Joylashuvingiz aniqlanmadi yoki bozordan uzoq: ball berilmadi.";
+  else if (r.points_awarded) t += ` +${r.points_awarded} ball.`;
+  const c = r.context;
+  if (c && c.count > 0) {
+    const d = Math.round(Number(c.yours_vs_median_pct));
+    t += ` Boshqalar bu hafta ${c.count} ta narx yozgan, o'rtachasi ${money(c.median)} so'm` +
+         (d ? `; sizniki ${Math.abs(d)}% ${d > 0 ? "qimmatroq" : "arzonroq"}.` : ".");
+  }
+  return t;
+}
+
 async function submitPrice(e) {
   e.preventDefault();
   const msg = $("f-msg");
@@ -178,13 +200,17 @@ async function submitPrice(e) {
   };
   if ($("f-promo").checked && $("f-old").value) body.old_price = $("f-old").value;
   if ($("f-url").value.trim()) body.source_url = $("f-url").value.trim();
+  const pos = await whereAmI();
+  if (pos) { body.lat = pos.latitude.toFixed(6); body.lng = pos.longitude.toFixed(6); }
+  let saved;
   try {
-    await NK.request("/api/prices/", { method: "POST", json: body });
+    saved = await NK.request(NK.API_READ + "prices/", { method: "POST", json: body });
   } catch (err) {
-    msg.className = "error"; msg.textContent = NK.formProblem(err);
+    msg.className = "error";
+    msg.textContent = err.status === 429 && err.data && err.data.detail ? err.data.detail : NK.formProblem(err);
     return;
   }
-  msg.className = "ok"; msg.textContent = "✓ Rahmat! Narx saqlandi.";
+  msg.className = "ok"; msg.textContent = savedMessage(saved);
   $("f-price").value = ""; $("f-old").value = ""; $("f-url").value = "";
   refresh(); loadDeals();
 }

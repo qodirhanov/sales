@@ -216,11 +216,9 @@ class PagesUnderFlagTests(ParityBase):
         self.assertIn("3 ta mahsulot", html)
 
     @override_settings(USE_NEW_API=True)
-    def test_add_form_is_replaced_by_a_note_until_writes_move(self):
+    def test_add_form_is_shown_to_logged_in_users(self):
         self.client.force_login(self.user)
-        html = self.client.get("/").content.decode()
-        self.assertNotIn('id="add-form"', html)
-        self.assertIn("yangi tizimga o", html)
+        self.assertContains(self.client.get("/"), 'id="add-form"')
 
     @override_settings(USE_NEW_API=True)
     def test_product_page_shows_offers_best_price_and_change(self):

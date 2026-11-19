@@ -22,11 +22,11 @@
     {% for it in items %}
     <li class="line" data-id="{{ it.entry.pk }}">
       <div>
-        <h2 class="what">{{ it.entry.product.name }}</h2>
-        <p class="d-where">{{ it.entry.location.name }}, {{ it.entry.location.district.name }}</p>
-        <p class="meta">{{ it.quantity }} {{ it.entry.get_unit_display }} &middot; yozilgan: {{ it.entry.created_at|timesince }} oldin
+        <h2 class="what">{{ it.product }}</h2>
+        <p class="d-where">{{ it.place }}</p>
+        <p class="meta">{{ it.quantity }} {{ it.unit }} &middot; yozilgan: {{ it.created_at|timesince }} oldin
           &middot; <span class="seen" data-seen>{% if it.count %}{{ it.count }} kishi ko'rgan{% else %}hali hech kim tasdiqlamagan{% endif %}</span></p>
-        {% if it.entry.is_flagged %}<p class="hand doubt">Bu narx g'alati ko'rindi, siz ko'rdingizmi?{% if it.need_more %} Yana {{ it.need_more }} kishi kerak.{% endif %}</p>{% endif %}
+        {% if it.flagged %}<p class="hand doubt">Bu narx g'alati ko'rindi, siz ko'rdingizmi?{% if it.need_more %} Yana {{ it.need_more }} kishi kerak.{% endif %}</p>{% endif %}
         <div class="d-acts">
           <button class="yes" type="button" data-confirm="{{ it.entry.pk }}">Ha, shu narx to'g'ri</button>
           <span class="hand stamp" aria-hidden="true">tasdiqlandi</span>
@@ -58,7 +58,7 @@
     var row = btn.closest(".line");
     live.textContent = "";
     btn.disabled = true;
-    fetch("/api/prices/" + btn.dataset.confirm + "/confirm/", {
+    fetch(NK.API_READ + "prices/" + btn.dataset.confirm + "/confirm/", {
       method: "POST", credentials: "same-origin",
       headers: { "X-CSRFToken": NK.cookie("csrftoken"), "Accept": "application/json" },
     }).then(function (r) {

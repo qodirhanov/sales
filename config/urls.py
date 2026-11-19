@@ -21,8 +21,8 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 from django.views.generic import TemplateView
 
-from apps.market.web import CategoryDetailView, IndexView, ProductDetailView  # legacy or new models, by USE_NEW_API
-from prices.web import AppPasswordChangeView, ConfirmPricesView, SettingsView, SignupView
+from apps.market.web import CategoryDetailView, ConfirmPricesView, IndexView, ProductDetailView, SettingsView  # legacy or new models, by USE_NEW_API
+from prices.web import AppPasswordChangeView, SignupView
 
 urlpatterns = [
     path('', IndexView.as_view(), name='home'),

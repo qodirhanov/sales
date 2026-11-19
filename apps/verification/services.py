@@ -167,7 +167,7 @@ class SubmitResult:
 
 @transaction.atomic
 def submit_report(*, user, product, place, price, unit, quantity=Decimal("1"), photo=None,
-                  reporter_lat=None, reporter_lng=None, now=None):
+                  reporter_lat=None, reporter_lng=None, is_promo=False, old_price=None, source_url="", now=None):
     """Create a report applying rules 1, 2 and 5. Raises RateLimited, or Django ValidationError for a bad unit."""
     now = now or timezone.now()
     profile = _locked_profile(user)
@@ -179,7 +179,7 @@ def submit_report(*, user, product, place, price, unit, quantity=Decimal("1"), p
 
     report = PriceReport.objects.create(
         product=product, place=place, user=user, price=price, quantity=quantity, unit=unit, photo=photo,
-        reporter_lat=reporter_lat, reporter_lng=reporter_lng, is_far=is_far, distance_m=distance_m,
+        is_promo=is_promo, old_price=old_price, source_url=source_url, reporter_lat=reporter_lat, reporter_lng=reporter_lng, is_far=is_far, distance_m=distance_m,
         status=Status.FLAGGED if flagged else Status.PENDING, created_at=now,
         status_changed_at=now if flagged else None,
     )

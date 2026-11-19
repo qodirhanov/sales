@@ -222,7 +222,7 @@
   }
 
   var NK = window.NK = {
-    API_READ: API_READ, UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
+    API_READ: API_READ, NEW_API: API_READ !== "/api/", UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
     money: money, esc: esc, safeUrl: safeUrl, cookie: cookie, ago: ago,
     request: request, api: api, fail: fail, formProblem: formProblem, delta: delta,
     productInfo: productInfo, trend: trend, sync: sync,

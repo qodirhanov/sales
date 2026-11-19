@@ -4,14 +4,24 @@ The templates are the same files as before: these views hand them the same conte
 pages look identical. Differences while both worlds exist: no category tree (the new Category is flat),
 no product image/description/usage, and "district" is simply absent.
 """
+from math import ceil
+
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Case, Count, IntegerField, Sum, When
 from django.shortcuts import get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
+from django.utils import timezone
 from django.views.generic import TemplateView
 
+from datetime import timedelta
+
 from apps.catalog.models import Category, Product
+from apps.reports.models import Confirmation, PriceReport
+from apps.verification import constants as C
 from prices import web as legacy_web
+from prices.models import Profile
 
 from . import selectors as sel
 
@@ -63,6 +73,62 @@ class NewCategoryDetailView(TemplateView):
         return ctx
 
 
+class NewConfirmPricesView(LoginRequiredMixin, TemplateView):
+    """Open reports by other people that this user has not confirmed yet; suspicious ones first."""
+    template_name = "prices/confirm.html"
+    login_url = "/login/"
+    LIMIT = 30
+    DAYS = 7
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        user = self.request.user
+        S = PriceReport.Status
+        reports = (
+            PriceReport.objects
+            .filter(created_at__gte=timezone.now() - timedelta(days=self.DAYS), status__in=(S.PENDING, S.FLAGGED),
+                    product__is_active=True, place__is_active=True)
+            .exclude(user=user).exclude(confirmations__user=user)
+            .select_related("product", "place__city")
+            .annotate(n_confirmed=Count("confirmations", distinct=True), w_confirmed=Sum("confirmations__weight"),
+                      _flag_first=Case(When(status=S.FLAGGED, then=0), default=1, output_field=IntegerField()))
+            .order_by("_flag_first", "n_confirmed", "-created_at", "-id")[:self.LIMIT]
+        )
+        items = []
+        for r in reports:
+            flagged = r.status == S.FLAGGED
+            missing = C.FLAGGED_CONFIRM_THRESHOLD - (r.w_confirmed or 0)
+            items.append({
+                "entry": r, "product": r.product.name, "place": f"{r.place.name}, {r.place.city.name}",
+                "unit": r.get_unit_display(), "created_at": r.created_at, "flagged": flagged,
+                "count": r.n_confirmed, "price_text": f"{r.price:,}".replace(",", " "),
+                "quantity": f"{r.quantity.normalize():f}",
+                "need_more": max(0, ceil(float(missing))) if flagged else 0,
+            })
+        ctx["items"] = items
+        ctx["my_confirmed"] = Confirmation.objects.filter(user=user).count()
+        return ctx
+
+
+class NewSettingsView(legacy_web.SettingsView):
+    """Same page; the price count and the list come from the new reports. Profile saving is unchanged."""
+
+    def get_context_data(self, **kwargs):
+        ctx = TemplateView.get_context_data(self, **kwargs)
+        user = self.request.user
+        profile, _ = Profile.objects.get_or_create(user=user)
+        mine = PriceReport.objects.filter(user=user)
+        ctx["profile"] = profile
+        ctx["my_entries_count"] = mine.count()
+        # Dicts, not models: the template reads e.product / e.location / e.get_unit_display either way.
+        ctx["recent_entries"] = [
+            {"product": r.product, "location": r.place, "created_at": r.created_at, "price": r.price,
+             "quantity": r.quantity, "get_unit_display": r.get_unit_display()}
+            for r in mine.select_related("product", "place").order_by("-created_at", "-id")[:10]
+        ]
+        return ctx
+
+
 class _Switch:
     """Behaves like a class-based view in urls.py; picks the implementation per request from the flag."""
 
@@ -80,3 +146,5 @@ class _Switch:
 IndexView = _Switch(legacy_web.IndexView, NewIndexView)
 ProductDetailView = _Switch(legacy_web.ProductDetailView, NewProductDetailView)
 CategoryDetailView = _Switch(legacy_web.CategoryDetailView, NewCategoryDetailView)
+ConfirmPricesView = _Switch(legacy_web.ConfirmPricesView, NewConfirmPricesView)
+SettingsView = _Switch(legacy_web.SettingsView, NewSettingsView)
