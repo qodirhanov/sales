@@ -1,0 +1,90 @@
+/* "Bozor daftari" — design tokens.
+   Only this file may contain raw hex colors and px values.
+   Everything else (base.css, templates) must use var(--…). */
+:root {
+  /* ---- color: paper, ink, rules ---- */
+  --bg: #F2EDE3;
+  --card: #FBF8F2;
+  --text: #1E1B16;
+  --muted: #5A4F40;
+  --line: #D9D0C0;
+
+  /* accent: ONLY the cheapest price and the main action */
+  --accent: #F4C77B;
+  --on-accent: var(--text);
+
+  /* price movement: always paired with an arrow, never color alone */
+  --up: #A3321A;      /* ▲ got more expensive */
+  --down: #2E6237;    /* ▼ got cheaper */
+
+  /* derived, still no new hex */
+  --card-dim: color-mix(in srgb, var(--line) 45%, var(--card));
+  --accent-soft: color-mix(in srgb, var(--accent) 30%, var(--card));
+  --shadow-color: color-mix(in srgb, var(--text) 18%, transparent);
+  --scrim: color-mix(in srgb, var(--card) 92%, transparent);
+
+  /* ---- type ---- */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: var(--font-body);   /* swapped when the typeface is chosen */
+  --font-hand: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;   /* handwritten notes only */
+  --fs-xs: 12px;
+  --fs-sm: 14px;
+  --fs-md: 16px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 28px;
+  --fs-3xl: 32px;
+  --fs-hero: 96px;
+  --fs-hero-sm: 44px;
+  --lh-body: 1.5;
+  --lh-tight: 1.25;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 800;
+
+  /* ---- space ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* ---- shape ---- */
+  --bw: 1px;
+  --bw-strong: 2px;
+  --r-sm: 4px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-pill: 999px;
+  --r-round: 50%;
+  --shadow-sm: 0 1px 0 var(--shadow-color);
+  --shadow-md: 0 6px 16px var(--shadow-color);
+
+  /* ---- sizes ---- */
+  --page-max: 1120px;
+  --narrow-max: 400px;
+  --tap: 44px;              /* minimum touch target */
+  --tap-sm: 36px;
+  --icon: 20px;
+  --icon-lg: 24px;
+  --thumb: 72px;
+  --thumb-sm: 60px;
+  --avatar: 56px;
+  --tile-min: 96px;
+  --search-basis: 220px;
+  --chart-h: 240px;
+  --pd-pic-w: 380px;
+  --tabbar-h: 72px;
+  --focus-ring: 3px;
+  --lift: -2px;
+
+  --t-fast: .15s;
+  --daftar-max: 720px;
+  --tilt-a: -2deg;
+  --tilt-b: 1.2deg;
+  --tilt-c: -3deg;
+  --tag-notch: 10px;
+}

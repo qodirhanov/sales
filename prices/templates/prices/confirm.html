@@ -1,76 +1,8 @@
 {% extends "prices/base.html" %}
+{% load static %}
 {% block title %}Narx to'g'rimi? — Narx kuzatuvchi{% endblock %}
 
-{% block head %}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Caveat:wght@600&family=Golos+Text:wght@400;500;600&display=swap" rel="stylesheet">
-<style>
-  /* "Bozor daftari": qog'oz, qora siyoh, bitta urg'u - sariq karton. Gradient va emoji yo'q. */
-  .daftar {
-    --paper: #f4eedd; --ink: #1b1a17; --ink-soft: #55524a; --rule: #c9c1a8; --card-yellow: #f2c335;
-    max-width: 720px; margin: 8px auto 32px; padding: 28px 22px 26px 34px;
-    background: var(--paper); color: var(--ink);
-    font-family: "Golos Text", system-ui, -apple-system, "Segoe UI", sans-serif; font-size: 16px; line-height: 1.5;
-    border: 1px solid #b9b095; border-left: 3px double #8d846a; border-radius: 3px;
-    box-shadow: 0 1px 0 #fff8 inset, 0 10px 24px rgba(0,0,0,.18);
-    position: relative;
-  }
-  .daftar h1 { font-family: "Bricolage Grotesque", "Golos Text", system-ui, sans-serif; font-weight: 800;
-               font-size: clamp(30px, 7vw, 44px); line-height: 1.05; margin: 0 0 6px; letter-spacing: -.01em; }
-  .daftar .lead { margin: 0 0 4px; max-width: 46ch; color: var(--ink-soft); }
-  .hand { font-family: "Caveat", "Bradley Hand", "Segoe Print", cursive; font-weight: 600; color: var(--ink); }
-  .note { display: inline-block; font-size: 24px; line-height: 1.1; transform: rotate(-2deg); margin: 6px 0 2px;
-          border-bottom: 3px solid var(--card-yellow); padding-bottom: 1px; }
-  .head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-              padding-bottom: 14px; border-bottom: 2px solid var(--ink); margin-bottom: 4px; }
-  .tally { text-align: left; font-size: 14px; color: var(--ink-soft); }
-  .tally b { font-family: "Bricolage Grotesque", sans-serif; font-size: 28px; color: var(--ink); display: block; line-height: 1; }
-
-  .lines { list-style: none; margin: 0; padding: 0; }
-  .line { display: grid; grid-template-columns: 1fr; gap: 12px; padding: 18px 0 16px; border-bottom: 1px dashed var(--rule); }
-  .line.gone { opacity: .55; }
-  .what { font-family: "Bricolage Grotesque", "Golos Text", sans-serif; font-weight: 600; font-size: 20px; line-height: 1.2; margin: 0; }
-  .d-where { margin: 2px 0 0; color: var(--ink-soft); font-size: 14px; }
-  .meta { margin: 6px 0 0; font-size: 14px; color: var(--ink-soft); }
-
-  .yorliq { display: inline-flex; align-items: baseline; gap: 6px; background: var(--card-yellow); color: var(--ink);
-         border: 2px solid var(--ink); border-radius: 4px 10px 10px 4px; padding: 8px 14px 8px 28px; position: relative;
-         font-family: "Bricolage Grotesque", sans-serif; font-weight: 800; font-size: 26px; line-height: 1; white-space: nowrap;
-         transform: rotate(-1.5deg); justify-self: start; order: -1; }
-  .yorliq::before { content: ""; position: absolute; left: 8px; top: 50%; width: 9px; height: 9px; margin-top: -5px;
-                 border-radius: 50%; background: var(--paper); border: 2px solid var(--ink); }
-  .yorliq small { font-family: "Golos Text", sans-serif; font-weight: 500; font-size: 14px; }
-  .line:nth-child(even) .yorliq { transform: rotate(1.2deg); }
-
-  .doubt { font-size: 22px; line-height: 1.15; margin: 8px 0 0; transform: rotate(-1deg); }
-  .d-acts { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-  .yes { min-height: 48px; padding: 10px 20px; font: 600 16px "Golos Text", system-ui, sans-serif; cursor: pointer;
-         background: var(--ink); color: var(--paper); border: 2px solid var(--ink); border-radius: 6px; }
-  .yes:hover { background: #000; }
-  .yes:focus-visible { outline: 3px solid var(--card-yellow); outline-offset: 2px; }
-  .yes[disabled] { cursor: default; opacity: .6; }
-  .seen { font-size: 14px; color: var(--ink-soft); }
-  .stamp { display: none; font-size: 28px; transform: rotate(-4deg); border: 3px solid var(--ink); border-radius: 6px; padding: 0 12px; }
-  .line.gone .stamp { display: inline-block; }
-  .line.gone .yes { display: none; }
-  .err { color: #8a1f17; font-size: 14px; margin: 0; }
-
-  .d-empty { padding: 36px 0 18px; }
-  .d-empty p { margin: 0 0 10px; }
-  .d-empty .hand { font-size: 30px; line-height: 1.1; }
-  .daftar a { color: var(--ink); text-decoration-thickness: 2px; text-underline-offset: 3px; text-decoration-color: var(--card-yellow); }
-  .daftar a:hover { background: var(--card-yellow); }
-  .foot { margin-top: 18px; font-size: 14px; color: var(--ink-soft); }
-
-  @media (min-width: 640px) {
-    .daftar { padding: 34px 40px 30px 52px; }
-    .line { grid-template-columns: 1fr auto; align-items: center; gap: 24px; }
-    .yorliq { font-size: 28px; order: 0; }
-  }
-  @media (prefers-reduced-motion: no-preference) { .yes, .line { transition: opacity .2s, background .15s; } }
-</style>
-{% endblock %}
+{% block head %}<link rel="stylesheet" href="{% static 'css/confirm.css' %}">{% endblock %}
 
 {% block content %}
 <section class="daftar" aria-labelledby="t">
@@ -95,12 +27,12 @@
         <p class="meta">{{ it.quantity }} {{ it.entry.get_unit_display }} &middot; yozilgan: {{ it.entry.created_at|timesince }} oldin
           &middot; <span class="seen" data-seen>{% if it.count %}{{ it.count }} kishi ko'rgan{% else %}hali hech kim tasdiqlamagan{% endif %}</span></p>
         {% if it.entry.is_flagged %}<p class="hand doubt">Bu narx g'alati ko'rindi, siz ko'rdingizmi?{% if it.need_more %} Yana {{ it.need_more }} kishi kerak.{% endif %}</p>{% endif %}
-        <div class="d-acts" style="margin-top:12px">
+        <div class="d-acts">
           <button class="yes" type="button" data-confirm="{{ it.entry.pk }}">Ha, shu narx to'g'ri</button>
           <span class="hand stamp" aria-hidden="true">tasdiqlandi</span>
         </div>
       </div>
-      <div class="yorliq" aria-label="Narx: {{ it.price_text }} so'm">{{ it.price_text }} <small>so'm</small></div>
+      <div class="yorliq" aria-label="Narx: {{ it.price_text }} so'm"><span class="yorliq-num">{{ it.price_text }}</span> <small>so'm</small></div>
     </li>
     {% endfor %}
   </ol>
@@ -118,10 +50,6 @@
 {% block scripts %}
 <script>
 (function () {
-  function cookie(name) {
-    var m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
-    return m ? decodeURIComponent(m[1]) : "";
-  }
   var live = document.getElementById("live");
   var tally = document.querySelector(".tally b");
   document.addEventListener("click", function (e) {
@@ -132,7 +60,7 @@
     btn.disabled = true;
     fetch("/api/prices/" + btn.dataset.confirm + "/confirm/", {
       method: "POST", credentials: "same-origin",
-      headers: { "X-CSRFToken": cookie("csrftoken"), "Accept": "application/json" },
+      headers: { "X-CSRFToken": NK.cookie("csrftoken"), "Accept": "application/json" },
     }).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (d) { return { r: r, d: d }; });
     }).then(function (x) {
@@ -142,18 +70,17 @@
         if (seen) seen.textContent = x.d.confirmations + " kishi ko'rgan";
         if (tally && x.r.status === 201) tally.textContent = Number(tally.textContent) + 1;
         live.textContent = "Rahmat, daftarga yozildi.";
-        live.className = "hand";
-        live.style.fontSize = "22px";
+        live.className = "hand live-ok";
         return;
       }
       btn.disabled = false;
-      live.className = "err"; live.style.fontSize = "";
+      live.className = "err";
       if (x.r.status === 403) live.textContent = "Bu narxni tasdiqlab bo'lmaydi. O'zingiz yozgan bo'lsangiz yoki kirmagan bo'lsangiz shunday bo'ladi.";
       else if (x.r.status === 429) live.textContent = "Juda tez bosdingiz. Biroz kutib, qayta urinib ko'ring.";
       else live.textContent = "Narx boshqacha ekanmi? Hozir saqlab bo'lmadi, birozdan keyin qayta urinib ko'ring.";
     }).catch(function () {
       btn.disabled = false;
-      live.className = "err"; live.style.fontSize = "";
+      live.className = "err";
       live.textContent = "Internet yo'q shekilli. Ulanishni tekshirib, qayta bosing.";
     });
   });

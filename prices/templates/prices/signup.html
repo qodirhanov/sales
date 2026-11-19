@@ -10,7 +10,7 @@
     {% for field in form %}
       <label>{{ field.label }}
         {{ field }}
-        {% if field.help_text %}<span class="muted" style="font-size:12px">{{ field.help_text }}</span>{% endif %}
+        {% if field.help_text %}<span class="muted help">{{ field.help_text }}</span>{% endif %}
         {% for err in field.errors %}<span class="error">{{ err }}</span>{% endfor %}
       </label>
     {% endfor %}

@@ -93,7 +93,43 @@ def discount_pct(entry):
     return None
 
 
-def build_offer(entry, cheapest_price=None):
+def price_change(entry, previous):
+    """How `entry` moved against `previous` (an older entry of the same product and place).
+    Returns None when there is nothing to compare, else
+    {"dir": "up"|"down"|"same", "pct": whole percent (signed), "old_price": previous normalized price}.
+    Compared on normalized_price so 500 g vs 1 kg entries are still comparable."""
+    if previous is None or not previous.normalized_price:
+        return None
+    pct = int(((entry.normalized_price - previous.normalized_price) / previous.normalized_price * 100)
+              .quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    direction = "up" if pct > 0 else "down" if pct < 0 else "same"
+    return {"dir": direction, "pct": pct, "old_price": previous.normalized_price}
+
+
+def attach_changes(targets, history):
+    """{entry.pk: price_change or None} for each target.
+    `history` is every entry to look back through, newest first (same order as recent_entries)."""
+    by_place = {}
+    for e in history:
+        by_place.setdefault((e.product_id, e.location_id), []).append(e)
+    changes = {}
+    for t in targets:
+        older = next((x for x in by_place.get((t.product_id, t.location_id), ())
+                      if (x.created_at, x.pk) < (t.created_at, t.pk)), None)
+        changes[t.pk] = price_change(t, older)
+    return changes
+
+
+def changes_for(targets):
+    """Same as attach_changes, fetching the history itself (one query) for entries from several products."""
+    targets = list(targets)
+    if not targets:
+        return {}
+    history = recent_entries().filter(product_id__in={t.product_id for t in targets})
+    return attach_changes(targets, history)
+
+
+def build_offer(entry, cheapest_price=None, change=None):
     """Dict consumed by the web templates."""
     link, kind = offer_link(entry)
     extra = 0
@@ -110,6 +146,7 @@ def build_offer(entry, cheapest_price=None):
         "is_promo": entry.is_promo,
         "old_price": entry.old_price,
         "discount_pct": discount_pct(entry),
+        "change": change,
     }
 
 
@@ -118,7 +155,8 @@ def build_offers(entries):
     latest = sorted(latest_per_location(entries),
                     key=lambda e: (e.normalized_price, -e.created_at.timestamp()))
     cheapest = latest[0].normalized_price if latest else None
-    return [build_offer(e, cheapest) for e in latest]
+    changes = attach_changes(latest, entries)
+    return [build_offer(e, cheapest, changes[e.pk]) for e in latest]
 
 
 def find_deals(reason="all", category=None, district=None):

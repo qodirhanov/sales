@@ -1,0 +1,55 @@
+/* "Narx to'g'rimi?" page — the notebook page. Tokens only (see tokens.css). */
+
+.daftar {
+  position: relative; max-width: var(--daftar-max); margin: var(--sp-2) auto var(--sp-6);
+  padding: var(--sp-5) var(--sp-4) var(--sp-5) var(--sp-5);
+  background: var(--card); color: var(--text);
+  border: var(--bw) solid var(--line); border-left: var(--sp-1) double var(--muted); border-radius: var(--r-sm);
+  box-shadow: var(--shadow-md);
+}
+.daftar h1 { font: var(--fw-bold) clamp(var(--fs-2xl), 7vw, var(--fs-hero-sm))/1.05 var(--font-display); margin: 0 0 var(--sp-2); }
+.daftar .lead { margin: 0 0 var(--sp-1); max-width: 46ch; color: var(--muted); }
+.daftar .hand { font-family: var(--font-hand); font-weight: var(--fw-semibold); color: var(--text); }
+.daftar .note { display: inline-block; font-size: var(--fs-xl); line-height: 1.1; transform: rotate(var(--tilt-a)); margin: var(--sp-2) 0 var(--sp-1);
+                border-bottom: var(--sp-1) solid var(--accent); }
+.head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap;
+            padding-bottom: var(--sp-4); border-bottom: var(--bw-strong) solid var(--text); margin-bottom: var(--sp-1); }
+.tally { font-size: var(--fs-sm); color: var(--muted); }
+.tally b { font: var(--fw-bold) var(--fs-2xl)/1 var(--font-display); color: var(--text); display: block; }
+
+.lines { list-style: none; margin: 0; padding: 0; }
+.line { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); padding: var(--sp-4) 0; border-bottom: var(--bw) dashed var(--line); }
+.line.gone { opacity: .55; }
+.what { font: var(--fw-semibold) var(--fs-xl)/1.2 var(--font-display); margin: 0; }
+.d-where { margin: var(--sp-1) 0 0; color: var(--muted); font-size: var(--fs-sm); }
+.meta { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--muted); }
+.d-acts { display: flex; align-items: center; gap: var(--sp-4); flex-wrap: wrap; margin-top: var(--sp-3); }
+
+/* the cardboard price tag; the same component marks the cheapest price on the product page */
+.daftar .yorliq { order: -1; justify-self: start; }
+.line:nth-child(even) .yorliq { transform: rotate(var(--tilt-b)); }
+
+.doubt { font-size: var(--fs-xl); line-height: 1.15; margin: var(--sp-2) 0 0; transform: rotate(var(--tilt-c)); }
+.yes { min-height: var(--tap); padding: var(--sp-2) var(--sp-5); font: var(--fw-semibold) var(--fs-md) var(--font-body); cursor: pointer;
+       background: var(--text); color: var(--card); border: var(--bw-strong) solid var(--text); border-radius: var(--r-md); }
+.yes:hover { box-shadow: var(--shadow-md); }
+.yes[disabled] { cursor: default; opacity: .6; }
+.seen { font-size: var(--fs-sm); color: var(--muted); }
+.stamp { display: none; font-size: var(--fs-xl); transform: rotate(var(--tilt-c)); border: var(--bw-strong) solid var(--text);
+         border-radius: var(--r-md); padding: 0 var(--sp-3); }
+.line.gone .stamp { display: inline-block; }
+.line.gone .yes { display: none; }
+.err { color: var(--up); font-size: var(--fs-sm); margin: 0; }
+.live-ok { font-size: var(--fs-xl); }
+
+.d-empty { padding: var(--sp-6) 0 var(--sp-4); }
+.d-empty p { margin: 0 0 var(--sp-2); }
+.d-empty .hand { font-size: var(--fs-2xl); line-height: 1.1; }
+.foot { margin-top: var(--sp-4); font-size: var(--fs-sm); color: var(--muted); }
+
+@media (min-width: 640px) {
+  .daftar { padding: var(--sp-6) var(--sp-6) var(--sp-5) var(--sp-7); }
+  .line { grid-template-columns: 1fr auto; align-items: center; gap: var(--sp-5); }
+  .daftar .yorliq { order: 0; }
+}
+@media (prefers-reduced-motion: no-preference) { .yes, .line { transition: opacity .2s; } }

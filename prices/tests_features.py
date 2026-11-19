@@ -309,3 +309,51 @@ class ConfirmPageTests(BaseData):
     def test_empty_state(self):
         self.client.force_login(self.viewer)
         self.assertContains(self.client.get("/tasdiqlash/"), "Daftar toza")
+
+
+class PriceChangeTests(BaseData):
+    """▲/▼ against the previous price at the same place, compared on normalized_price."""
+
+    def _two(self, old, new, **kw):
+        from datetime import timedelta
+        from django.utils import timezone
+        now = timezone.now()
+        self.make(price=old, created_at=now - timedelta(days=3), **kw)
+        return self.make(price=new, created_at=now - timedelta(days=1), **kw)
+
+    def test_up_down_same(self):
+        from .services import changes_for
+        e = self._two(100000, 110000)
+        self.assertEqual(changes_for([e])[e.pk]["dir"], "up")
+        self.assertEqual(changes_for([e])[e.pk]["pct"], 10)
+        e2 = self._two(100000, 90000, location=self.loc_b)
+        self.assertEqual(changes_for([e2])[e2.pk]["pct"], -10)
+        self.assertEqual(changes_for([e2])[e2.pk]["dir"], "down")
+
+    def test_no_history_means_no_change(self):
+        from .services import changes_for
+        e = self.make()
+        self.assertIsNone(changes_for([e])[e.pk])
+
+    def test_units_are_normalized_before_comparing(self):
+        from .services import changes_for
+        e = self._two(50000, 55000, quantity=500, unit="g")  # 100 000 -> 110 000 per kg
+        self.assertEqual(changes_for([e])[e.pk]["pct"], 10)
+
+    def test_does_not_compare_across_places(self):
+        from .services import changes_for
+        self.make(price=100000, location=self.loc_b)
+        e = self.make(price=200000)  # other place's price is not "before"
+        self.assertIsNone(changes_for([e])[e.pk])
+
+    def test_cheapest_and_deals_api_carry_change(self):
+        e = self._two(100000, 120000)
+        r = APIClient().get(f"/api/products/{self.meat.pk}/cheapest/")
+        self.assertEqual(r.data["results"][0]["change"]["dir"], "up")
+
+    def test_product_page_shows_arrow_and_percent(self):
+        self._two(100000, 120000)
+        html = self.client.get(f"/product/{self.meat.pk}/").content.decode()
+        self.assertIn("▲", html)
+        self.assertIn("20%", html)
+        self.assertIn("120 000", html)  # grouped the same way as the JS side

@@ -20,7 +20,7 @@ from .models import Category, DailyPriceStat, District, Location, PriceAlert, Pr
 from .serializers import (CategorySerializer, DistrictSerializer, LocationSerializer,
                           PriceAlertSerializer, PriceEntrySerializer, ProductSerializer, RegionSerializer)
 from .permissions import IsSellerOrReadOnly
-from .services import (category_product_count, compare_basket, confirm_entry, discount_pct, find_deals,
+from .services import (category_product_count, changes_for, compare_basket, confirm_entry, discount_pct, find_deals,
                        haversine_km, offer_link, quantize_money)
 from .throttles import ConfirmThrottle, PriceCreateThrottle
 
@@ -130,8 +130,10 @@ class ProductViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             entries.sort(key=lambda t: (t[0].normalized_price, -t[0].created_at.timestamp()))
 
+        changes = changes_for(e for e, _ in entries)
         results = [
             {
+                "change": changes[e.pk],
                 "distance_km": d,
                 "location": LocationSerializer(e.location).data,
                 "link": offer_link(e)[0],
@@ -277,8 +279,10 @@ class DealsView(APIView):
         district = _district_param(request)
         category = request.query_params.get("category") or None
 
+        deals = find_deals(reason, category=category, district=district)[:limit]
+        changes = changes_for(e for e, _, _ in deals)
         results = []
-        for e, why, pct in find_deals(reason, category=category, district=district)[:limit]:
+        for e, why, pct in deals:
             link, kind = offer_link(e)
             loc = e.location
             results.append({
@@ -293,6 +297,7 @@ class DealsView(APIView):
                     "location": {"id": loc.id, "name": loc.name, "type": loc.type,
                                  "district_name": loc.district.name, "address": loc.address},
                     "link": link, "link_kind": kind, "created_at": e.created_at,
+                    "change": changes[e.pk],
                 },
                 "reason": why,
                 "saving_pct": pct,
