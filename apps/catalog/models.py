@@ -106,6 +106,7 @@ class Place(models.Model):
     lng = models.DecimalField(_("Uzunlik (lng)"), max_digits=9, decimal_places=6, null=True, blank=True)
     opens_at = models.TimeField(_("Ochilish vaqti"), null=True, blank=True)
     closes_at = models.TimeField(_("Yopilish vaqti"), null=True, blank=True)
+    website = models.URLField(_("Sayt"), max_length=500, blank=True)
     is_active = models.BooleanField(_("Faol"), default=True)
 
     class Meta:

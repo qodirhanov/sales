@@ -8,6 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.catalog.models import Place, Product
 
 from .units import compute_normalized_price
+from .validators import validate_http_url
 
 
 class PriceReport(models.Model):
@@ -37,6 +38,11 @@ class PriceReport(models.Model):
     # Price per ONE product.default_unit; computed in save().
     normalized_price = models.DecimalField(_("1 birlik narxi"), max_digits=12, decimal_places=2, editable=False)
     photo = models.ImageField(_("Rasm"), upload_to="report_photos/%Y/%m/", null=True, blank=True)
+    # Promo price: the shelf price before the discount, and an optional link to the product page.
+    is_promo = models.BooleanField(_("Aksiya"), default=False)
+    old_price = models.PositiveIntegerField(_("Eski narx (aksiyadan oldin)"), null=True, blank=True)
+    source_url = models.URLField(_("Mahsulot havolasi"), max_length=500, blank=True,
+                                 validators=[validate_http_url])
 
     reporter_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
     reporter_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
