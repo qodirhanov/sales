@@ -221,6 +221,25 @@
     document.addEventListener("click", function (e) { if (!e.target.closest(".search")) close(); });
   }
 
+  /* Saved favorites and cart hold product ids. The legacy and the new catalog number products differently, so when
+     the site switches between them (USE_NEW_API) the saved ids are translated once, matching products by name.
+     localStorage "nk_ids" remembers which numbering the saved ids use; nothing saved before it existed is legacy. */
+  function remapIds() {
+    var mode = API_READ === "/api/" ? "legacy" : "v2", stored = null;
+    try { stored = localStorage.getItem("nk_ids"); } catch (e) { /* storage blocked: nothing saved anyway */ }
+    function remember() { try { localStorage.setItem("nk_ids", mode); } catch (e) { /* ignore */ } }
+    if ((stored || "legacy") === mode) { if (!stored) remember(); return; }
+    if (!fav.length && !Object.keys(cart).length) { remember(); return; }
+    request("/api/v2/product-id-map/").then(function (m) {
+      var map = mode === "v2" ? m.to_v2 : m.to_legacy;
+      fav = fav.map(function (id) { return map[id]; }).filter(Boolean);
+      var moved = {};
+      Object.keys(cart).forEach(function (id) { if (map[id]) moved[map[id]] = cart[id]; });
+      cart = moved;
+      save("nk_fav", fav); save("nk_cart", cart); remember(); infoCache = {}; emit();
+    }).catch(function () { /* offline: keep the old ids and try again on the next page load */ });
+  }
+
   var NK = window.NK = {
     API_READ: API_READ, NEW_API: API_READ !== "/api/", UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
     money: money, esc: esc, safeUrl: safeUrl, cookie: cookie, ago: ago,
@@ -235,4 +254,5 @@
     clearCart: function () { cart = {}; save("nk_cart", cart); emit(); },
   };
   initSearch();
+  remapIds();
 })();

@@ -272,3 +272,21 @@ class AddFormPlacesTests(ParityBase):
         self.assertEqual(new["count"], 28)
         self.assertEqual(len(new["results"]), 28)
         self.assertEqual(len(self.api.get("/api/v2/locations/").json()["results"]), 20)
+
+
+class ProductIdMapTests(ParityBase):
+    def test_maps_both_ways_by_name(self):
+        m = self.api.get("/api/v2/product-id-map/").json()
+        old, new = self.legacy_product("Mol go'shti").pk, self.v2_product("Mol go'shti").pk
+        self.assertEqual(m["to_v2"][str(old)], new)
+        self.assertEqual(m["to_legacy"][str(new)], old)
+
+    def test_products_missing_on_one_side_are_left_out(self):
+        legacy.Product.objects.create(name="Faqat eski", category=legacy.Category.objects.get(slug="gosht"),
+                                      base_unit="kg")
+        m = self.api.get("/api/v2/product-id-map/").json()
+        only_old = legacy.Product.objects.get(name="Faqat eski").pk
+        self.assertNotIn(str(only_old), m["to_v2"])
+
+    def test_pages_include_the_remap_code(self):
+        self.assertIn("remapIds", open("static/js/app.js", encoding="utf-8").read())

@@ -351,6 +351,21 @@ class DealsView(APIView):
         return Response({"results": results})
 
 
+class ProductIdMapView(APIView):
+    """{"to_v2": {legacy id: new id}, "to_legacy": {new id: legacy id}}, matched by product name.
+    Lets the browser translate saved favorites and cart when the site switches catalogs."""
+    permission_classes = []
+    authentication_classes = []
+
+    def get(self, request):
+        from prices.models import Product as LegacyProduct
+        new = dict(Product.objects.values_list("name", "id"))
+        pairs = [(legacy_id, new[name]) for name, legacy_id in LegacyProduct.objects.values_list("name", "id")
+                 if name in new]
+        return Response({"to_v2": {str(old): fresh for old, fresh in pairs},
+                         "to_legacy": {str(fresh): old for old, fresh in pairs}})
+
+
 BASKET_MAX_ITEMS = 50
 
 

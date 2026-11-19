@@ -14,5 +14,6 @@ urlpatterns = [
     path("prices/<int:pk>/confirm/", writes.ReportConfirmView.as_view(), name="v2-price-confirm"),
     path("basket/compare/", views.BasketCompareView.as_view(), name="v2-basket-compare"),
     path("deals/", views.DealsView.as_view(), name="v2-deals"),
+    path("product-id-map/", views.ProductIdMapView.as_view(), name="v2-product-id-map"),
     path("", include(router.urls)),
 ]
