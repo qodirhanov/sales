@@ -10,6 +10,7 @@ What maps to what
   Product                -> catalog.Product (units: kg/l/piece -> kg/litr/dona)
   PriceEntry             -> reports.PriceReport; flagged entries stay FLAGGED, the rest become CONFIRMED
   PriceConfirmation      -> reports.Confirmation with weight 1
+  PriceAlert             -> market.PriceAlert (matched by product name)
   Profile.phone          -> accounts.UserProfile.phone when it is a valid, unused Uzbek number
 
 What is not carried over: Profile.shop_name (the new model has no home for it), the category emoji
@@ -25,6 +26,8 @@ from django.utils.text import slugify
 from apps.accounts.models import UserProfile
 from apps.accounts.phone import normalize_phone
 from apps.catalog.models import Category, City, Place, Product
+
+from apps.market.models import PriceAlert
 
 from .models import Confirmation, PriceReport
 
@@ -105,7 +108,7 @@ def _place(loc, name_counts, forced_slug, stats):
 
 def _run(city_slug):
     from prices.models import Category as LCategory, Location, PriceConfirmation, PriceEntry, Product as LProduct
-    from prices.models import Profile
+    from prices.models import PriceAlert as LAlert, Profile
 
     stats = Counter()
 
@@ -154,6 +157,19 @@ def _run(city_slug):
         _, created = Confirmation.objects.get_or_create(report=report, user_id=c.user_id,
                                                         defaults={"created_at": c.created_at})
         stats["confirmations_created"] += int(created)
+
+    for a in LAlert.objects.select_related("product"):
+        product = products.get(a.product_id)
+        if product is None:
+            stats["alerts_skipped"] += 1
+            continue
+        alert, created = PriceAlert.objects.get_or_create(
+            user_id=a.user_id, product=product,
+            defaults={"target_price": int(a.target_price), "is_active": a.is_active, "triggered_at": a.triggered_at,
+                      "last_notified_price": a.last_notified_price})
+        if created:
+            PriceAlert.objects.filter(pk=alert.pk).update(created_at=a.created_at)  # auto_now_add ignores input
+        stats["alerts_created" if created else "alerts_existing"] += 1
 
     for p in Profile.objects.exclude(phone="").select_related("user"):
         try:

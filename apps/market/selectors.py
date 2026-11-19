@@ -174,15 +174,18 @@ def find_deals(reason="all", category=None, city=None):
     return deals
 
 
+def best_current_price(product):
+    """Lowest current price per default unit for a new-catalog product, or None."""
+    prices = [r.normalized_price for r in latest_per_place(recent_reports(product=product))]
+    return min(prices) if prices else None
+
+
 def best_price_for_name(name):
-    """Lowest current price per default unit for the product called `name`, or None."""
+    """Same, for the product called `name` (used by the legacy alerts while both worlds exist)."""
     from apps.catalog.models import Product
 
     product = Product.objects.filter(name=name, is_active=True).first()
-    if product is None:
-        return None
-    prices = [r.normalized_price for r in latest_per_place(recent_reports(product=product))]
-    return min(prices) if prices else None
+    return best_current_price(product) if product else None
 
 
 # ---------------------------------------------------------------- basket

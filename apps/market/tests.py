@@ -373,3 +373,73 @@ class ContentCarryOverTests(ParityBase):
         self.assertIn("Yangi go&#x27;sht.", html)
         self.assertIn("Qovurish uchun.", html)
         self.assertIn("products/mol.jpg", html)
+
+
+class NewAlertsTests(ParityBase):
+    def setUp(self):
+        from apps.catalog.models import Place
+        self.meat_new = self.v2_product("Mol go'shti")
+        self.client = APIClient()
+        self.client.force_authenticate(self.voter)
+        self.place = Place.objects.get(name="Chorsu bozori")
+
+    def post(self, **over):
+        body = {"product": self.meat_new.pk, "target_price": 80000}
+        body.update(over)
+        return self.client.post("/api/v2/alerts/", body, format="json")
+
+    def test_requires_login(self):
+        self.assertIn(APIClient().get("/api/v2/alerts/").status_code, (401, 403))
+
+    def test_create_list_update_delete_own_alert(self):
+        r = self.post()
+        self.assertEqual(r.status_code, 201, r.json())
+        body = r.json()
+        self.assertEqual((body["product_name"], body["base_unit"], body["is_reached"]), ("Mol go'shti", "kg", True))
+        self.assertEqual(Decimal(str(body["current_best"])), Decimal("70000.00"))
+        self.assertEqual(len(self.client.get("/api/v2/alerts/").json()), 1)
+        self.assertEqual(self.client.patch(f"/api/v2/alerts/{body['id']}/", {"target_price": 50000}, format="json")
+                         .json()["is_reached"], False)
+        self.assertEqual(self.client.delete(f"/api/v2/alerts/{body['id']}/").status_code, 204)
+
+    def test_one_alert_per_product_and_positive_target(self):
+        self.assertEqual(self.post().status_code, 201)
+        self.assertEqual(self.post().status_code, 400)
+        self.assertEqual(self.post(product=self.v2_product("Tuxum").pk, target_price=0).status_code, 400)
+
+    def test_cannot_see_or_delete_others_alerts(self):
+        mine = self.post().json()["id"]
+        other = APIClient()
+        other.force_authenticate(self.user)
+        self.assertEqual(other.get("/api/v2/alerts/").json(), [])
+        self.assertEqual(other.delete(f"/api/v2/alerts/{mine}/").status_code, 404)
+
+    def test_command_fires_once_then_rearms_after_a_price_rise(self):
+        from io import StringIO
+        from django.core.management import call_command
+        from apps.market.models import PriceAlert
+        self.post(target_price=60000)
+        PriceReport.objects.create(product=self.meat_new, place=self.place, user=self.user, price=55000, quantity=1,
+                                   unit="kg", status="confirmed")
+        call_command("check_alerts", stdout=StringIO())
+        alert = PriceAlert.objects.get()
+        self.assertEqual(alert.last_notified_price, Decimal("55000.00"))
+        first = alert.triggered_at
+        call_command("check_alerts", stdout=StringIO())
+        alert.refresh_from_db()
+        self.assertEqual(alert.triggered_at, first)                    # not re-sent for the same price
+        PriceReport.objects.filter(price=55000).update(status="rejected")   # cheap price disappears
+        call_command("check_alerts", stdout=StringIO())
+        alert.refresh_from_db()
+        self.assertIsNone(alert.last_notified_price)                   # re-armed
+
+    def test_legacy_alerts_are_imported_once(self):
+        legacy.PriceAlert.objects.create(user=self.voter, product=self.legacy_product("Mol go'shti"), target_price=65000,
+                                         is_active=False)
+        stats = import_legacy()
+        self.assertEqual(stats["alerts_created"], 1)
+        from apps.market.models import PriceAlert
+        a = PriceAlert.objects.get()
+        self.assertEqual((a.user, a.product, a.target_price, a.is_active), (self.voter, self.meat_new, 65000, False))
+        self.assertEqual(import_legacy()["alerts_existing"], 1)
+        self.assertEqual(PriceAlert.objects.count(), 1)

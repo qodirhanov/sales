@@ -10,9 +10,11 @@ from apps.accounts.models import UserProfile
 from apps.catalog.models import City, Place, Product
 from apps.reports.models import PriceReport
 
+from .models import PriceAlert
+
 
 def run_checks():
-    from prices.models import PriceEntry, Product as LegacyProduct
+    from prices.models import PriceAlert as LegacyAlert, PriceEntry, Product as LegacyProduct
 
     checks = []
     add = lambda level, msg: checks.append((level, msg))
@@ -44,6 +46,13 @@ def run_checks():
                     "500 m rule cannot be checked, so every reporter counts as present. Set lat/lng in the admin.")
     else:
         add("ok", "All active places have coordinates (the 500 m rule works everywhere).")
+
+    old_alerts, new_alerts = LegacyAlert.objects.count(), PriceAlert.objects.count()
+    if old_alerts > new_alerts:
+        add("warn", f"{old_alerts} legacy price alerts vs {new_alerts} new: re-run import_legacy_prices, and "
+                    "schedule `check_alerts` (the new alert command) instead of check_price_alerts.")
+    else:
+        add("ok", f"{new_alerts} price alerts on the new models ({old_alerts} legacy).")
 
     users = get_user_model().objects.count()
     profiles = UserProfile.objects.count()
