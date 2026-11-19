@@ -52,7 +52,7 @@
 
   <section class="card" id="add-price">
     <h2>Narx qo'shish</h2>
-    {% if user.is_authenticated and user.profile.is_seller %}
+    {% if user.is_authenticated %}
     <form id="add-form">
       <label>Mahsulot<select id="f-product" required></select></label>
       <label>Bozor / do'kon<select id="f-location" required></select></label>
@@ -69,9 +69,6 @@
       <button class="btn primary" type="submit">Saqlash</button>
       <p id="f-msg" class="muted" role="status"></p>
     </form>
-    {% elif user.is_authenticated %}
-    <p class="muted">Siz xaridor sifatida kirgansiz — narx faqat sotuvchilar kiritadi.</p>
-    <a class="btn primary" href="{% url 'settings' %}">Sotuvchi bo'lish</a>
     {% else %}
     <p class="muted">Narx qo'shish uchun <a href="/login/?next=/">tizimga kiring</a>
       yoki <a href="/signup/">ro'yxatdan o'ting</a>.</p>

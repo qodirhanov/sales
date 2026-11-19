@@ -126,18 +126,10 @@ class SettingsView(LoginRequiredMixin, TemplateView):
 
     def post(self, request, *args, **kwargs):
         profile, _ = Profile.objects.get_or_create(user=request.user)
-        action = request.POST.get("action")
-        if action not in ("become_seller", "stop_seller", "save_profile"):
+        if request.POST.get("action") != "save_profile":
             messages.error(request, "Noma'lum amal.")
             return redirect("settings")
-
-        if action == "stop_seller":
-            profile.is_seller = False
-            profile.save(update_fields=["is_seller"])
-            messages.success(request, "Siz endi xaridorsiz. Narx kiritish o'chirildi.")
-            return redirect("settings")
-
-        # become_seller / save_profile may carry shop_name + phone; only fields that were sent are touched.
+        # Only fields that were sent are touched.
         fields = []
         for name, limit, label in (("shop_name", SHOP_NAME_MAX, "Do'kon nomi"), ("phone", PHONE_MAX, "Telefon")):
             if name in request.POST:
@@ -147,14 +139,9 @@ class SettingsView(LoginRequiredMixin, TemplateView):
                     return redirect("settings")
                 setattr(profile, name, value)
                 fields.append(name)
-        if action == "become_seller":
-            profile.is_seller = True
-            fields.append("is_seller")
-            messages.success(request, "Tabriklaymiz, siz endi sotuvchisiz! Narx kiritishingiz mumkin.")
-        else:
-            messages.success(request, "Profil saqlandi.")
         if fields:
             profile.save(update_fields=fields)
+        messages.success(request, "Profil saqlandi.")
         return redirect("settings")
 
 

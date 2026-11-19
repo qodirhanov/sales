@@ -17,8 +17,6 @@ class BaseData(TestCase):
     @classmethod
     def setUpTestData(cls):
         cls.user = User.objects.create_user("tester", password="pw")
-        cls.user.profile.is_seller = True  # profile is auto-created by the post_save signal
-        cls.user.profile.save()
         Product.objects.all().delete()  # products seeded by migration 0009 (PROTECT)
         Category.objects.all().delete()  # drop departments seeded by migration 0008; tests build their own
         cat = Category.objects.create(name="Go'sht", slug="gosht")
@@ -117,27 +115,31 @@ class PriceApiTests(BaseData):
         r = c.post("/api/prices/", self.payload(unit="ml"), format="json")
         self.assertEqual(r.status_code, 400)
 
-    def test_buyer_cannot_create_price(self):
-        buyer = User.objects.create_user("buyer", password="pw")
+    def test_any_logged_in_user_can_create_price(self):
+        newcomer = User.objects.create_user("newcomer", password="pw")
         c = APIClient()
-        c.force_authenticate(buyer)
+        c.force_authenticate(newcomer)
         r = c.post("/api/prices/", self.payload(), format="json")
-        self.assertEqual(r.status_code, 403)
-        self.assertIn("sotuvchi", str(r.data["detail"]))
+        self.assertEqual(r.status_code, 201, r.data)
+        self.assertEqual(PriceEntry.objects.get().user, newcomer)
+
+    def test_anonymous_cannot_create_price_but_can_read(self):
+        c = APIClient()
+        self.assertIn(c.post("/api/prices/", self.payload(), format="json").status_code, (401, 403))
         self.assertEqual(PriceEntry.objects.count(), 0)
-        self.assertEqual(c.get("/api/prices/").status_code, 200)  # reading is still fine
+        self.assertEqual(c.get("/api/prices/").status_code, 200)
 
     def test_seller_can_create_price(self):
         c = APIClient()
         c.force_authenticate(self.user)
         self.assertEqual(c.post("/api/prices/", self.payload(), format="json").status_code, 201)
 
-    def test_user_without_profile_is_treated_as_buyer(self):
-        buyer = User.objects.create_user("noprofile", password="pw")
-        buyer.profile.delete()
+    def test_user_without_profile_can_still_create_price(self):
+        user = User.objects.create_user("noprofile", password="pw")
+        user.profile.delete()
         c = APIClient()
-        c.force_authenticate(User.objects.get(pk=buyer.pk))
-        self.assertEqual(c.post("/api/prices/", self.payload(), format="json").status_code, 403)
+        c.force_authenticate(User.objects.get(pk=user.pk))
+        self.assertEqual(c.post("/api/prices/", self.payload(), format="json").status_code, 201)
 
     def test_list_excludes_flagged(self):
         self.make()
@@ -194,36 +196,28 @@ class WebPageTests(BaseData):
     def test_logged_in_user_sees_add_form(self):
         client = APIClient()
         client.force_login(self.user)
-        self.assertContains(client.get("/"), 'id="add-form"')  # self.user is a seller
+        self.assertContains(client.get("/"), 'id="add-form"')
 
-    def test_buyer_sees_no_add_form_but_settings_hint(self):
-        buyer = User.objects.create_user("buyer2", password="pw")
+    def test_every_logged_in_user_sees_add_form(self):
+        newcomer = User.objects.create_user("newcomer2", password="pw")
         client = APIClient()
-        client.force_login(buyer)
-        page = client.get("/")
-        self.assertNotContains(page, 'id="add-form"')
-        self.assertContains(page, "/settings/")
+        client.force_login(newcomer)
+        self.assertContains(client.get("/"), 'id="add-form"')
 
 
 class SettingsPageTests(BaseData):
     def test_requires_login(self):
         r = self.client.get("/settings/")
         self.assertRedirects(r, "/login/?next=/settings/", fetch_redirect_response=False)
-        self.assertEqual(self.client.post("/settings/", {"action": "become_seller"}).status_code, 302)
+        self.assertEqual(self.client.post("/settings/", {"action": "save_profile"}).status_code, 302)
 
-    def test_become_and_stop_seller(self):
-        buyer = User.objects.create_user("b3", password="pw")
-        self.client.force_login(buyer)
-        self.assertFalse(buyer.profile.is_seller)
-        r = self.client.post("/settings/", {"action": "become_seller", "shop_name": "Mening do'konim"})
+    def test_role_switch_actions_are_gone(self):
+        user = User.objects.create_user("b3", password="pw")
+        self.client.force_login(user)
+        r = self.client.post("/settings/", {"action": "become_seller", "shop_name": "X"})
         self.assertRedirects(r, "/settings/", fetch_redirect_response=False)
-        buyer.profile.refresh_from_db()
-        self.assertTrue(buyer.profile.is_seller)
-        self.assertEqual(buyer.profile.shop_name, "Mening do'konim")
-        self.client.post("/settings/", {"action": "stop_seller"})
-        buyer.profile.refresh_from_db()
-        self.assertFalse(buyer.profile.is_seller)
-        self.assertEqual(buyer.profile.shop_name, "Mening do'konim")  # details are kept
+        user.profile.refresh_from_db()
+        self.assertEqual(user.profile.shop_name, "")  # unknown action changes nothing
 
     def test_save_profile_validates_length(self):
         self.client.force_login(self.user)
@@ -254,8 +248,8 @@ class SignupTests(TestCase):
         self.assertRedirects(resp, "/", fetch_redirect_response=False)
         self.assertTrue(User.objects.filter(username="yangi_user").exists())
         user = User.objects.get(username="yangi_user")
-        self.assertTrue(Profile.objects.filter(user=user, is_seller=False).exists())  # buyer by default
-        self.assertNotContains(self.client.get("/"), 'id="add-form"')
+        self.assertTrue(Profile.objects.filter(user=user).exists())
+        self.assertContains(self.client.get("/"), 'id="add-form"')  # new users can add prices right away
 
     def test_password_mismatch_shows_error(self):
         resp = self.client.post("/signup/", {

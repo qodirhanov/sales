@@ -128,9 +128,6 @@ select:focus, input:focus { border-color: var(--text); }
 .profile-head .stat strong { font-size: var(--fs-2xl); line-height: 1.1; }
 .avatar { width: var(--avatar); height: var(--avatar); border-radius: var(--r-round); background: var(--accent); color: var(--on-accent);
           border: var(--bw-strong) solid var(--text); display: grid; place-items: center; font-size: var(--fs-xl); font-weight: var(--fw-bold); }
-.role { font-size: var(--fs-sm); font-weight: var(--fw-semibold); padding: var(--sp-1) var(--sp-3); border-radius: var(--r-pill); }
-.role.seller { background: var(--text); color: var(--card); }
-.role.buyer { background: var(--line); color: var(--muted); }
 .settings-grid { display: grid; gap: var(--sp-4); grid-template-columns: 1fr; }
 
 /* ---- categories + product cards ---- */

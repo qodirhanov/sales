@@ -24,8 +24,6 @@ class Command(BaseCommand):
             if created:
                 user.set_unusable_password()
                 user.save()
-        user.profile.is_seller = True
-        user.profile.save(update_fields=["is_seller"])
 
         locations = list(Location.objects.filter(is_active=True).select_related("district").order_by("id")[:2])
         products = list(Product.objects.filter(is_active=True).order_by("id")[:2])

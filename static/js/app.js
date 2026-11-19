@@ -70,7 +70,7 @@
   /* DRF 400 body -> short Uzbek sentence (server messages may be English, so only field names are shown). */
   function formProblem(err) {
     if (err.status === 0 || err.status === 429 || err.status >= 500) return reason(err);
-    if (err.status === 403) return "Narx qo'shish uchun sotuvchi bo'lishingiz kerak (Profil bo'limida).";
+    if (err.status === 403) return "Narx qo'shish uchun tizimga kiring.";
     var names = Object.keys(err.data || {}).map(function (k) { return FIELD_LABEL[k]; }).filter(Boolean);
     return names.length ? "Tekshiring: " + names.join(", ") + "." : "Saqlab bo'lmadi. Maydonlarni tekshiring.";
   }

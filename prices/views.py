@@ -19,7 +19,6 @@ from .filters import LocationFilter, PriceEntryFilter, ProductFilter, ProductSea
 from .models import Category, DailyPriceStat, District, Location, PriceAlert, PriceEntry, Product, Region
 from .serializers import (CategorySerializer, DistrictSerializer, LocationSerializer,
                           PriceAlertSerializer, PriceEntrySerializer, ProductSerializer, RegionSerializer)
-from .permissions import IsSellerOrReadOnly
 from .services import (category_product_count, changes_for, compare_basket, confirm_entry, discount_pct, find_deals,
                        haversine_km, offer_link, quantize_money)
 from .throttles import ConfirmThrottle, PriceCreateThrottle
@@ -239,7 +238,7 @@ class LocationViewSet(viewsets.ReadOnlyModelViewSet):
 class PriceEntryViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = PriceEntrySerializer
     filterset_class = PriceEntryFilter
-    permission_classes = [IsSellerOrReadOnly]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
     throttle_classes = [PriceCreateThrottle]
     throttle_scope = "price_create"
 
