@@ -24,9 +24,10 @@
   --scrim: color-mix(in srgb, var(--card) 92%, transparent);
 
   /* ---- type ---- */
-  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --font-display: var(--font-body);   /* swapped when the typeface is chosen */
-  --font-hand: "Segoe Print", "Bradley Hand", "Comic Sans MS", cursive;   /* handwritten notes only */
+  --font-system: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;   /* fallback while fonts load */
+  --font-body: "Golos Text", var(--font-system);
+  --font-display: "Bricolage Grotesque", var(--font-system);                 /* headings, prices */
+  --font-hand: "Caveat", "Segoe Print", "Bradley Hand", cursive;              /* handwritten notes only */
   --fs-xs: 12px;
   --fs-sm: 14px;
   --fs-md: 16px;

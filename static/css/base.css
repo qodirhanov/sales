@@ -290,3 +290,7 @@ a.chip { display: inline-grid; align-items: center; text-decoration: none; }
 .yorliq small { font-size: var(--fs-sm); font-weight: var(--fw-medium); }
 .pd-info .yorliq { margin: var(--sp-2) 0 var(--sp-3); }
 .offer .pr .delta { display: flex; justify-content: flex-end; }
+
+/* ---- typeface: display font for headings and every price figure ---- */
+h1, h2, h3 { font-family: var(--font-display); }
+.pcard .now, .offer .pr, .price, .summary .sum { font-family: var(--font-display); }
