@@ -19,7 +19,8 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
-from django.views.generic import TemplateView
+from django.templatetags.static import static as static_url
+from django.views.generic import RedirectView, TemplateView
 
 from apps.market.web import CategoryDetailView, ConfirmPricesView, IndexView, ProductDetailView, SettingsView  # legacy or new models, by USE_NEW_API
 from prices.web import AppPasswordChangeView, SignupView
@@ -38,6 +39,8 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),
     path('settings/', SettingsView.as_view(), name='settings'),
     path('settings/password/', AppPasswordChangeView.as_view(), name='password_change'),
+    # Browsers ask for /favicon.ico whatever the <link rel=icon> says; send them to the SVG.
+    path('favicon.ico', RedirectView.as_view(url=static_url('img/favicon.svg'), permanent=True)),
     path('admin/', admin.site.urls),
     path('api/v2/', include('apps.market.urls')),  # same JSON as /api/, on the new models
     path('api/', include('prices.urls')),

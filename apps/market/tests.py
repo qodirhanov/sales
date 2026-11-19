@@ -248,3 +248,10 @@ class PagesUnderFlagTests(ParityBase):
         html = self.client.get("/cart/").content.decode()
         self.assertIn('NK.API_READ + "basket/compare/"', html)
         self.assertIn('data-api="/api/v2/"', html)
+
+
+class FaviconTests(TestCase):
+    def test_favicon_ico_redirects_to_the_svg(self):
+        r = self.client.get("/favicon.ico")
+        self.assertEqual(r.status_code, 301)
+        self.assertTrue(r["Location"].endswith("/static/img/favicon.svg"))
