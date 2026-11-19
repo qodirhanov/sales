@@ -260,7 +260,14 @@ def compare_basket(items):
 
 # ---------------------------------------------------------------- price alerts
 def best_current_price(product):
-    """Lowest recent normalized price for a product, or None."""
+    """Lowest recent normalized price for a product, or None.
+    With USE_NEW_API the price comes from the new reports (matched by product name), so alerts keep
+    firing after the switch. Alerts themselves still belong to the legacy product."""
+    from django.conf import settings
+
+    if settings.USE_NEW_API:
+        from apps.market.selectors import best_price_for_name
+        return best_price_for_name(product.name)
     prices = [e.normalized_price for e in latest_per_location(recent_entries(product=product))]
     return min(prices) if prices else None
 

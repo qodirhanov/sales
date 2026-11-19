@@ -290,3 +290,43 @@ class ProductIdMapTests(ParityBase):
 
     def test_pages_include_the_remap_code(self):
         self.assertIn("remapIds", open("static/js/app.js", encoding="utf-8").read())
+
+
+class AlertsOnNewPricesTests(ParityBase):
+    """Price alerts belong to the legacy product but must see new prices once the flag is on."""
+
+    def setUp(self):
+        from apps.catalog.models import Place
+        self.alert = legacy.PriceAlert.objects.create(user=self.voter, product=self.legacy_product("Mol go'shti"),
+                                                       target_price=60000)
+        # a cheaper price that exists ONLY in the new system
+        PriceReport.objects.create(product=self.v2_product("Mol go'shti"), place=Place.objects.get(name="Chorsu bozori"),
+                                   user=self.user, price=55000, quantity=1, unit="kg", status="confirmed")
+
+    def test_flag_off_alerts_see_only_legacy_prices(self):
+        from prices.services import best_current_price
+        self.assertEqual(best_current_price(self.alert.product), Decimal("70000.00"))
+
+    @override_settings(USE_NEW_API=True)
+    def test_flag_on_alerts_see_new_prices(self):
+        from prices.services import best_current_price
+        self.assertEqual(best_current_price(self.alert.product), Decimal("55000.00"))
+
+    @override_settings(USE_NEW_API=True)
+    def test_command_fires_on_a_new_price_and_api_reports_it(self):
+        from io import StringIO
+        from django.core.management import call_command
+        call_command("check_price_alerts", stdout=StringIO())
+        self.alert.refresh_from_db()
+        self.assertEqual(self.alert.last_notified_price, Decimal("55000.00"))
+        c = APIClient()
+        c.force_authenticate(self.voter)
+        row = c.get("/api/alerts/").json()[0]
+        self.assertTrue(row["is_reached"])
+
+    @override_settings(USE_NEW_API=True)
+    def test_unmatched_product_gives_no_price(self):
+        from prices.services import best_current_price
+        odd = legacy.Product.objects.create(name="Faqat eski 2", category=legacy.Category.objects.get(slug="gosht"),
+                                            base_unit="kg")
+        self.assertIsNone(best_current_price(odd))

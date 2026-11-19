@@ -174,6 +174,17 @@ def find_deals(reason="all", category=None, city=None):
     return deals
 
 
+def best_price_for_name(name):
+    """Lowest current price per default unit for the product called `name`, or None."""
+    from apps.catalog.models import Product
+
+    product = Product.objects.filter(name=name, is_active=True).first()
+    if product is None:
+        return None
+    prices = [r.normalized_price for r in latest_per_place(recent_reports(product=product))]
+    return min(prices) if prices else None
+
+
 # ---------------------------------------------------------------- basket
 def compare_basket(items):
     """items: {product_id: Decimal quantity in the product's default unit}.
