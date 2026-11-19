@@ -231,10 +231,9 @@ class DailyPriceStat(models.Model):
 
 
 class Profile(models.Model):
-    """Role flag + seller details. Everyone is a buyer by default; sellers may add prices."""
+    """Optional shop details for a user. Every logged-in user may add prices."""
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="profile",
                                 verbose_name="Foydalanuvchi")
-    is_seller = models.BooleanField("Sotuvchi", default=False)
     shop_name = models.CharField("Do'kon / bozor nomi", max_length=120, blank=True)
     phone = models.CharField("Telefon", max_length=20, blank=True)
     created_at = models.DateTimeField("Yaratilgan vaqt", auto_now_add=True)
@@ -244,7 +243,7 @@ class Profile(models.Model):
         verbose_name_plural = "Profillar"
 
     def __str__(self):
-        return f"{self.user} ({'sotuvchi' if self.is_seller else 'xaridor'})"
+        return str(self.user)
 
 
 class PriceConfirmation(models.Model):

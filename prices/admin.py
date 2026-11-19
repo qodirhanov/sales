@@ -66,8 +66,7 @@ class DailyPriceStatAdmin(admin.ModelAdmin):
 
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
-    list_display = ("user", "is_seller", "shop_name", "phone", "created_at")
-    list_filter = ("is_seller",)
+    list_display = ("user", "shop_name", "phone", "created_at")
     search_fields = ("user__username", "shop_name", "phone")
     list_select_related = ("user",)
 
