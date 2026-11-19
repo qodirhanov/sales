@@ -4,7 +4,7 @@ pages and app.js work unchanged. Mounted at /api/v2/.
 Compatibility notes (all temporary, until the pages are switched and the legacy app is removed):
   * "district" in the API is the new City (id and name), because Place has a city and no district.
   * Unit codes are emitted in the legacy spelling (litr -> l, dona -> piece), see selectors.UNIT_OUT.
-  * Product image, description and usage do not exist on the new model: null / empty strings.
+  * Category emoji is always empty and categories are flat (parent is null).
 """
 from collections import defaultdict
 from datetime import datetime, time, timedelta
@@ -35,6 +35,12 @@ from .selectors import api_unit
 BASE_UNIT_OUT = {"kg": "kg", "litr": "l", "dona": "piece"}
 
 
+def _abs_image(request, image):
+    if not image:
+        return None
+    return request.build_absolute_uri(image.url) if request else image.url
+
+
 class StandardPagination(PageNumberPagination):
     page_size = 20
     page_size_query_param = "page_size"
@@ -56,7 +62,7 @@ class CategorySerializer(serializers.ModelSerializer):
         return ""
 
     def get_image(self, obj):
-        return None
+        return _abs_image(self.context.get("request"), obj.image)
 
     def get_parent(self, obj):
         return None
@@ -70,8 +76,6 @@ class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source="category.name", read_only=True)
     base_unit = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
-    description = serializers.SerializerMethodField()
-    usage = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -81,13 +85,7 @@ class ProductSerializer(serializers.ModelSerializer):
         return BASE_UNIT_OUT[obj.default_unit]
 
     def get_image(self, obj):
-        return None
-
-    def get_description(self, obj):
-        return ""
-
-    def get_usage(self, obj):
-        return ""
+        return _abs_image(self.context.get("request"), obj.image)
 
 
 class DistrictSerializer(serializers.ModelSerializer):
@@ -338,7 +336,7 @@ class DealsView(APIView):
         for r, why, value in deals:
             link, kind = sel.offer_link(r)
             results.append({
-                "product": {"id": r.product_id, "name": r.product.name, "image": None,
+                "product": {"id": r.product_id, "name": r.product.name, "image": _abs_image(request, r.product.image),
                             "category_name": r.product.category.name,
                             "base_unit": BASE_UNIT_OUT[r.product.default_unit]},
                 "offer": {"price": r.price, "quantity": r.quantity, "unit": api_unit(r.unit),

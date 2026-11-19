@@ -12,8 +12,9 @@ What maps to what
   PriceConfirmation      -> reports.Confirmation with weight 1
   Profile.phone          -> accounts.UserProfile.phone when it is a valid, unused Uzbek number
 
-What is not carried over: Profile.shop_name (the new model has no home for it), product image,
-description and usage, category emoji and image, and DailyPriceStat (rebuilt from reports).
+What is not carried over: Profile.shop_name (the new model has no home for it), the category emoji
+and DailyPriceStat (rebuilt from reports). Product and category images, product description and usage
+are copied; on a product that already exists only empty fields are filled.
 """
 from collections import Counter
 
@@ -38,8 +39,12 @@ class _Rollback(Exception):
 def _category(legacy, stats):
     row = Category.objects.filter(slug=legacy.slug).first() or Category.objects.filter(name=legacy.name).first()
     if row is None:
-        row = Category.objects.create(name=legacy.name, slug=legacy.slug, sort_order=legacy.sort_order)
+        row = Category.objects.create(name=legacy.name, slug=legacy.slug, sort_order=legacy.sort_order,
+                                      image=legacy.image.name or None)
         stats["categories_created"] += 1
+    elif legacy.image and not row.image:
+        row.image = legacy.image.name
+        row.save(update_fields=["image"])
     return row
 
 
@@ -49,11 +54,25 @@ def _product(legacy, categories, stats):
     row = Product.objects.filter(name=legacy.name).first()
     if row is None:
         row = Product.objects.create(name=legacy.name, category=categories[legacy.category_id],
-                                     default_unit=unit, is_active=legacy.is_active)
+                                     default_unit=unit, is_active=legacy.is_active, description=legacy.description,
+                                     usage=legacy.usage, image=legacy.image.name or None)
         stats["products_created"] += 1
     elif row.default_unit != unit:
         stats["products_unit_conflict"] += 1
         return None
+    else:
+        # Product already exists (e.g. from seed_namangan): fill only what is still empty, never overwrite.
+        changed = []
+        for field in ("description", "usage"):
+            if getattr(legacy, field) and not getattr(row, field):
+                setattr(row, field, getattr(legacy, field))
+                changed.append(field)
+        if legacy.image and not row.image:
+            row.image = legacy.image.name
+            changed.append("image")
+        if changed:
+            row.save(update_fields=changed)
+            stats["products_enriched"] += 1
     return row
 
 

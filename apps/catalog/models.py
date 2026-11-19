@@ -22,6 +22,7 @@ class Category(models.Model):
     name = models.CharField(_("Nomi"), max_length=100, unique=True)
     slug = models.SlugField(_("Slug"), max_length=100, unique=True)
     sort_order = models.PositiveSmallIntegerField(_("Tartib raqami"), default=100)
+    image = models.ImageField(_("Rasm"), upload_to="categories/", null=True, blank=True)
 
     class Meta:
         verbose_name = _("Kategoriya")
@@ -46,6 +47,9 @@ class Product(models.Model):
     pack_size = models.DecimalField(_("Qop hajmi (asosiy birlikda)"), max_digits=8, decimal_places=3,
                                     null=True, blank=True)
     is_active = models.BooleanField(_("Faol"), default=True)
+    image = models.ImageField(_("Rasm"), upload_to="products/", null=True, blank=True)
+    description = models.TextField(_("Tavsif"), blank=True)
+    usage = models.TextField(_("Nima uchun ishlatiladi"), blank=True)
     # Normalised name (see textnorm.py); search runs against it. Kept in sync by save().
     search_key = models.CharField(max_length=300, editable=False, default="", blank=True, db_index=True)
 

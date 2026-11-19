@@ -330,3 +330,46 @@ class AlertsOnNewPricesTests(ParityBase):
         odd = legacy.Product.objects.create(name="Faqat eski 2", category=legacy.Category.objects.get(slug="gosht"),
                                             base_unit="kg")
         self.assertIsNone(best_current_price(odd))
+
+
+class ContentCarryOverTests(ParityBase):
+    """Product text and images used on the product page survive the move."""
+
+    def test_existing_product_gets_blank_fields_filled_but_never_overwritten(self):
+        legacy.Product.objects.filter(name="Mol go'shti").update(description="Yangi go'sht.", usage="Qovurish uchun.",
+                                                                 image="products/mol.jpg")
+        stats = import_legacy()
+        p = Product.objects.get(name="Mol go'shti")
+        self.assertEqual((p.description, p.usage, p.image.name), ("Yangi go'sht.", "Qovurish uchun.", "products/mol.jpg"))
+        self.assertEqual(stats["products_enriched"], 1)
+        legacy.Product.objects.filter(name="Mol go'shti").update(description="Boshqa matn.")
+        import_legacy()
+        self.assertEqual(Product.objects.get(name="Mol go'shti").description, "Yangi go'sht.")  # not overwritten
+
+    def test_new_product_is_created_with_its_content(self):
+        cat = legacy.Category.objects.get(slug="gosht")
+        legacy.Product.objects.create(name="Qo'y go'shti", category=cat, base_unit="kg", description="Mayin.",
+                                      usage="Palov uchun.", image="products/qoy.jpg")
+        import_legacy()
+        p = Product.objects.get(name="Qo'y go'shti")
+        self.assertEqual((p.description, p.usage, p.image.name), ("Mayin.", "Palov uchun.", "products/qoy.jpg"))
+
+    def test_category_image_is_copied(self):
+        legacy.Category.objects.filter(slug="gosht").update(image="categories/gosht.png")
+        import_legacy()
+        from apps.catalog.models import Category
+        self.assertEqual(Category.objects.get(slug="gosht").image.name, "categories/gosht.png")
+
+    def test_v2_api_and_product_page_show_the_content(self):
+        legacy.Product.objects.filter(name="Mol go'shti").update(description="Yangi go'sht.", usage="Qovurish uchun.",
+                                                                 image="products/mol.jpg")
+        import_legacy()
+        pk = self.v2_product("Mol go'shti").pk
+        data = self.api.get(f"/api/v2/products/{pk}/").json()
+        self.assertEqual((data["description"], data["usage"]), ("Yangi go'sht.", "Qovurish uchun."))
+        self.assertTrue(data["image"].endswith("products/mol.jpg"))
+        with override_settings(USE_NEW_API=True):
+            html = self.client.get(f"/product/{pk}/").content.decode()
+        self.assertIn("Yangi go&#x27;sht.", html)
+        self.assertIn("Qovurish uchun.", html)
+        self.assertIn("products/mol.jpg", html)
