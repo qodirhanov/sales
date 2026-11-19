@@ -20,7 +20,7 @@
     <form method="post">{% csrf_token %}
       <input type="hidden" name="action" value="save_profile">
       <label>Do'kon / bozor nomi<input name="shop_name" maxlength="120" value="{{ profile.shop_name }}" placeholder="Masalan: Chorsu bozori, 12-do'kon"></label>
-      <label>Telefon<input name="phone" type="tel" maxlength="20" value="{{ profile.phone }}" placeholder="+998 90 123 45 67"></label>
+      <label>Telefon<input name="phone" type="tel" maxlength="20" value="{{ profile.phone|default_if_none:'' }}" placeholder="+998 90 123 45 67"></label>
       <button class="btn primary" type="submit">Saqlash</button>
     </form>
   </section>

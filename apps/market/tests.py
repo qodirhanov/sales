@@ -443,3 +443,15 @@ class NewAlertsTests(ParityBase):
         self.assertEqual((a.user, a.product, a.target_price, a.is_active), (self.voter, self.meat_new, 65000, False))
         self.assertEqual(import_legacy()["alerts_existing"], 1)
         self.assertEqual(PriceAlert.objects.count(), 1)
+
+
+class ShopNameImportTests(ParityBase):
+    def test_shop_name_is_copied_once_and_never_overwritten(self):
+        from apps.accounts.models import UserProfile
+        legacy.Profile.objects.filter(user=self.user).update(shop_name="Mening do'konim", phone="")
+        stats = import_legacy()
+        self.assertEqual(UserProfile.objects.get(user=self.user).shop_name, "Mening do'konim")
+        self.assertEqual(stats["shop_names_copied"], 1)
+        UserProfile.objects.filter(user=self.user).update(shop_name="Yangi nom")
+        import_legacy()
+        self.assertEqual(UserProfile.objects.get(user=self.user).shop_name, "Yangi nom")

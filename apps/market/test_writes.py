@@ -212,3 +212,48 @@ class PagesOnNewWritesTests(WriteBase):
         self.assertEqual(r.context["my_entries_count"], 2)
         self.assertEqual(len(r.context["recent_entries"]), 2)
         self.assertContains(r, "Mol go")
+
+
+@override_settings(USE_NEW_API=True)
+class SettingsProfileTests(WriteBase):
+    def setUp(self):
+        super().setUp()
+        self.client = APIClient()
+        self.client.force_login(self.newbie)
+
+    def save(self, **data):
+        data.setdefault("action", "save_profile")
+        return self.client.post("/settings/", data)
+
+    def profile(self):
+        from apps.accounts.models import UserProfile
+        return UserProfile.objects.get(user=self.newbie)
+
+    def test_page_shows_the_new_profile_and_no_none_text(self):
+        html = self.client.get("/settings/").content.decode()
+        self.assertNotIn('value="None"', html)
+
+    def test_saves_shop_name_and_normalises_phone(self):
+        self.save(shop_name="Chorsu, 12-do'kon", phone="90 123 45 67")
+        p = self.profile()
+        self.assertEqual((p.shop_name, p.phone), ("Chorsu, 12-do'kon", "+998901234567"))
+        self.assertContains(self.client.get("/settings/"), "Chorsu, 12-do&#x27;kon")
+
+    def test_invalid_and_too_long_values_are_rejected(self):
+        self.save(shop_name="X" * 121)
+        self.assertEqual(self.profile().shop_name, "")
+        self.save(phone="not a phone")
+        self.assertIsNone(self.profile().phone)
+
+    def test_phone_already_used_by_someone_else_is_rejected(self):
+        from apps.accounts.models import UserProfile
+        UserProfile.objects.filter(user=self.user).update(phone="+998901234567")
+        self.save(phone="+998 90 123 45 67")
+        self.assertIsNone(self.profile().phone)
+
+    def test_empty_phone_clears_it_and_unknown_actions_change_nothing(self):
+        self.save(phone="+998901234567")
+        self.save(phone="")
+        self.assertIsNone(self.profile().phone)
+        self.save(action="become_seller", shop_name="Hack")
+        self.assertEqual(self.profile().shop_name, "")

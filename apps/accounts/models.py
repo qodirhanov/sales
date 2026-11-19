@@ -22,6 +22,7 @@ class UserProfile(models.Model):
                                 related_name="userprofile", verbose_name=_("Foydalanuvchi"))
     phone = models.CharField(_("Telefon"), max_length=13, unique=True, null=True, blank=True,
                              validators=[validate_phone])
+    shop_name = models.CharField(_("Do'kon / bozor nomi"), max_length=120, blank=True)
     points = models.PositiveIntegerField(_("Ballar"), default=0)
     trust_score = models.PositiveSmallIntegerField(
         _("Ishonch darajasi (0-100)"), default=DEFAULT_TRUST_SCORE, validators=[MaxValueValidator(100)])

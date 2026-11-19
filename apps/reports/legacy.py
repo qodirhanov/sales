@@ -11,10 +11,10 @@ What maps to what
   PriceEntry             -> reports.PriceReport; flagged entries stay FLAGGED, the rest become CONFIRMED
   PriceConfirmation      -> reports.Confirmation with weight 1
   PriceAlert             -> market.PriceAlert (matched by product name)
+  Profile.shop_name      -> accounts.UserProfile.shop_name (only when still empty)
   Profile.phone          -> accounts.UserProfile.phone when it is a valid, unused Uzbek number
 
-What is not carried over: Profile.shop_name (the new model has no home for it), the category emoji
-and DailyPriceStat (rebuilt from reports). Product and category images, product description and usage
+What is not carried over: the category emoji and DailyPriceStat (rebuilt from reports). Product and category images, product description and usage
 are copied; on a product that already exists only empty fields are filled.
 """
 from collections import Counter
@@ -171,13 +171,19 @@ def _run(city_slug):
             PriceAlert.objects.filter(pk=alert.pk).update(created_at=a.created_at)  # auto_now_add ignores input
         stats["alerts_created" if created else "alerts_existing"] += 1
 
-    for p in Profile.objects.exclude(phone="").select_related("user"):
+    for p in Profile.objects.select_related("user"):
+        profile, _ = UserProfile.objects.get_or_create(user=p.user)
+        if p.shop_name and not profile.shop_name:
+            profile.shop_name = p.shop_name
+            profile.save(update_fields=["shop_name"])
+            stats["shop_names_copied"] += 1
+        if not p.phone:
+            continue
         try:
             phone = normalize_phone(p.phone)
         except ValueError:
             stats["phones_invalid"] += 1
             continue
-        profile, _ = UserProfile.objects.get_or_create(user=p.user)
         if profile.phone:
             continue
         if UserProfile.objects.filter(phone=phone).exists():

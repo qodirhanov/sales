@@ -7,9 +7,10 @@ no product image/description/usage, and "district" is simply absent.
 from math import ceil
 
 from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Case, Count, IntegerField, Sum, When
-from django.shortcuts import get_object_or_404
+from django.shortcuts import get_object_or_404, redirect
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.utils import timezone
@@ -21,7 +22,8 @@ from apps.catalog.models import Category, Product
 from apps.reports.models import Confirmation, PriceReport
 from apps.verification import constants as C
 from prices import web as legacy_web
-from prices.models import Profile
+from apps.accounts.models import UserProfile
+from apps.accounts.phone import normalize_phone
 
 from . import selectors as sel
 
@@ -111,12 +113,46 @@ class NewConfirmPricesView(LoginRequiredMixin, TemplateView):
 
 
 class NewSettingsView(legacy_web.SettingsView):
-    """Same page; the price count and the list come from the new reports. Profile saving is unchanged."""
+    """Same page on the new models: price count and list from reports, shop name and phone on UserProfile."""
+    SHOP_NAME_MAX = UserProfile._meta.get_field("shop_name").max_length
+
+    def post(self, request, *args, **kwargs):
+        if request.POST.get("action") != "save_profile":
+            messages.error(request, "Noma'lum amal.")
+            return redirect("settings")
+        profile, _ = UserProfile.objects.get_or_create(user=request.user)
+        fields = []
+        if "shop_name" in request.POST:
+            shop = request.POST["shop_name"].strip()
+            if len(shop) > self.SHOP_NAME_MAX:
+                messages.error(request, f"Do'kon nomi {self.SHOP_NAME_MAX} ta belgidan oshmasligi kerak.")
+                return redirect("settings")
+            profile.shop_name = shop
+            fields.append("shop_name")
+        if "phone" in request.POST:
+            raw = request.POST["phone"].strip()
+            if raw:
+                try:
+                    phone = normalize_phone(raw)
+                except ValueError:
+                    messages.error(request, "Telefon raqam noto'g'ri. Masalan: +998 90 123 45 67")
+                    return redirect("settings")
+                if UserProfile.objects.filter(phone=phone).exclude(pk=profile.pk).exists():
+                    messages.error(request, "Bu telefon raqam boshqa hisobda ishlatilgan.")
+                    return redirect("settings")
+                profile.phone = phone
+            else:
+                profile.phone = None
+            fields.append("phone")
+        if fields:
+            profile.save(update_fields=fields)
+        messages.success(request, "Profil saqlandi.")
+        return redirect("settings")
 
     def get_context_data(self, **kwargs):
         ctx = TemplateView.get_context_data(self, **kwargs)
         user = self.request.user
-        profile, _ = Profile.objects.get_or_create(user=user)
+        profile, _ = UserProfile.objects.get_or_create(user=user)
         mine = PriceReport.objects.filter(user=user)
         ctx["profile"] = profile
         ctx["my_entries_count"] = mine.count()
