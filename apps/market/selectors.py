@@ -1,7 +1,6 @@
 """Read-side price logic on the new models (PriceReport / Place / Product).
 
-Mirrors prices/services.py so the v2 API can return the same JSON as the legacy one while the
-site moves over. Everything is per ONE product.default_unit (normalized_price).
+Everything is per ONE product.default_unit (normalized_price).
 """
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
@@ -111,7 +110,7 @@ def changes_for(targets):
 
 # ---------------------------------------------------------------- offers and deals
 def build_offer(report, cheapest_price=None, change=None):
-    """Dict consumed by the web templates (same keys as the legacy prices.services.build_offer)."""
+    """Dict consumed by the web templates (the keys the page templates read)."""
     link, kind = offer_link(report)
     extra = 0
     if cheapest_price:
@@ -178,14 +177,6 @@ def best_current_price(product):
     """Lowest current price per default unit for a new-catalog product, or None."""
     prices = [r.normalized_price for r in latest_per_place(recent_reports(product=product))]
     return min(prices) if prices else None
-
-
-def best_price_for_name(name):
-    """Same, for the product called `name` (used by the legacy alerts while both worlds exist)."""
-    from apps.catalog.models import Product
-
-    product = Product.objects.filter(name=name, is_active=True).first()
-    return best_current_price(product) if product else None
 
 
 # ---------------------------------------------------------------- basket

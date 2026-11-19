@@ -1,0 +1,89 @@
+{% extends "site/base.html" %}
+{% load static %}
+{% block title %}Narx to'g'rimi? — Narx kuzatuvchi{% endblock %}
+
+{% block head %}<link rel="stylesheet" href="{% static 'css/confirm.css' %}">{% endblock %}
+
+{% block content %}
+<section class="daftar" aria-labelledby="t">
+  <div class="head-row">
+    <div>
+      <h1 id="t">Narx to'g'rimi?</h1>
+      <p class="lead">Bozorda yoki do'konda o'zingiz ko'rgan narxni tasdiqlang. Ikki kishi tasdiqlasa, shubhali narx ham daftarga o'tadi.</p>
+      <span class="hand note">ko'rmagan bo'lsangiz, tegmang</span>
+    </div>
+    <div class="tally"><b>{{ my_confirmed }}</b>siz tasdiqlagan</div>
+  </div>
+
+  <div id="live" class="err" role="status" aria-live="polite"></div>
+
+  {% if items %}
+  <ol class="lines">
+    {% for it in items %}
+    <li class="line" data-id="{{ it.entry.pk }}">
+      <div>
+        <h2 class="what">{{ it.product }}</h2>
+        <p class="d-where">{{ it.place }}</p>
+        <p class="meta">{{ it.quantity }} {{ it.unit }} &middot; yozilgan: {{ it.created_at|timesince }} oldin
+          &middot; <span class="seen" data-seen>{% if it.count %}{{ it.count }} kishi ko'rgan{% else %}hali hech kim tasdiqlamagan{% endif %}</span></p>
+        {% if it.flagged %}<p class="hand doubt">Bu narx g'alati ko'rindi, siz ko'rdingizmi?{% if it.need_more %} Yana {{ it.need_more }} kishi kerak.{% endif %}</p>{% endif %}
+        <div class="d-acts">
+          <button class="yes" type="button" data-confirm="{{ it.entry.pk }}">Ha, shu narx to'g'ri</button>
+          <span class="hand stamp" aria-hidden="true">tasdiqlandi</span>
+        </div>
+      </div>
+      <div class="yorliq" aria-label="Narx: {{ it.price_text }} so'm"><span class="yorliq-num">{{ it.price_text }}</span> <small>so'm</small></div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="d-empty">
+    <p class="hand">Hozircha tasdiqlaydigan narx yo'q. Daftar toza.</p>
+    <p>Bozorga chiqsangiz, ko'rgan narxingizni <a href="/">o'zingiz kiriting</a>. Boshqalar tasdiqlashadi.</p>
+  </div>
+  {% endif %}
+
+  <p class="foot">Narx boshqacha ekanmi? Tasdiqlamang, <a href="/">yangisini kiriting</a>.</p>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  var live = document.getElementById("live");
+  var tally = document.querySelector(".tally b");
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-confirm]");
+    if (!btn || btn.disabled) return;
+    var row = btn.closest(".line");
+    live.textContent = "";
+    btn.disabled = true;
+    fetch("/api/prices/" + btn.dataset.confirm + "/confirm/", {
+      method: "POST", credentials: "same-origin",
+      headers: { "X-CSRFToken": NK.cookie("csrftoken"), "Accept": "application/json" },
+    }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (d) { return { r: r, d: d }; });
+    }).then(function (x) {
+      if (x.r.ok) {
+        row.classList.add("gone");
+        var seen = row.querySelector("[data-seen]");
+        if (seen) seen.textContent = x.d.confirmations + " kishi ko'rgan";
+        if (tally && x.r.status === 201) tally.textContent = Number(tally.textContent) + 1;
+        live.textContent = "Rahmat, daftarga yozildi.";
+        live.className = "hand live-ok";
+        return;
+      }
+      btn.disabled = false;
+      live.className = "err";
+      if (x.r.status === 403) live.textContent = "Bu narxni tasdiqlab bo'lmaydi. O'zingiz yozgan bo'lsangiz yoki kirmagan bo'lsangiz shunday bo'ladi.";
+      else if (x.r.status === 429) live.textContent = "Juda tez bosdingiz. Biroz kutib, qayta urinib ko'ring.";
+      else live.textContent = "Narx boshqacha ekanmi? Hozir saqlab bo'lmadi, birozdan keyin qayta urinib ko'ring.";
+    }).catch(function () {
+      btn.disabled = false;
+      live.className = "err";
+      live.textContent = "Internet yo'q shekilli. Ulanishni tekshirib, qayta bosing.";
+    });
+  });
+})();
+</script>
+{% endblock %}

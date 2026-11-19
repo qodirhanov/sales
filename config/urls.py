@@ -22,8 +22,8 @@ from django.urls import include, path
 from django.templatetags.static import static as static_url
 from django.views.generic import RedirectView, TemplateView
 
-from apps.market.web import CategoryDetailView, ConfirmPricesView, IndexView, ProductDetailView, SettingsView  # legacy or new models, by USE_NEW_API
-from prices.web import AppPasswordChangeView, SignupView
+from apps.market.web import (AppPasswordChangeView, CategoryDetailView, ConfirmPricesView, IndexView,
+                             ProductDetailView, SettingsView, SignupView)
 
 urlpatterns = [
     path('', IndexView.as_view(), name='home'),
@@ -31,10 +31,10 @@ urlpatterns = [
     path('category/<slug:slug>/', CategoryDetailView.as_view(), name='category_detail'),
     # Saralangan va savat brauzerda (localStorage) saqlanadi; sahifalar API orqali to'ldiriladi.
     path('tasdiqlash/', ConfirmPricesView.as_view(), name='confirm_prices'),
-    path('favorites/', TemplateView.as_view(template_name='prices/favorites.html'), name='favorites'),
-    path('cart/', TemplateView.as_view(template_name='prices/cart.html'), name='cart'),
+    path('favorites/', TemplateView.as_view(template_name='site/favorites.html'), name='favorites'),
+    path('cart/', TemplateView.as_view(template_name='site/cart.html'), name='cart'),
     path('login/', auth_views.LoginView.as_view(
-        template_name='prices/login.html', redirect_authenticated_user=True), name='login'),
+        template_name='site/login.html', redirect_authenticated_user=True), name='login'),
     path('signup/', SignupView.as_view(), name='signup'),
     path('logout/', auth_views.LogoutView.as_view(next_page='/'), name='logout'),
     path('settings/', SettingsView.as_view(), name='settings'),
@@ -42,8 +42,7 @@ urlpatterns = [
     # Browsers ask for /favicon.ico whatever the <link rel=icon> says; send them to the SVG.
     path('favicon.ico', RedirectView.as_view(url=static_url('img/favicon.svg'), permanent=True)),
     path('admin/', admin.site.urls),
-    path('api/v2/', include('apps.market.urls')),  # same JSON as /api/, on the new models
-    path('api/', include('prices.urls')),
+    path('api/', include('apps.market.urls')),
 ]
 
 if settings.DEBUG:

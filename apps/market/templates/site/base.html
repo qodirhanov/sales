@@ -1,0 +1,72 @@
+{% load static %}
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Narx kuzatuvchi{% endblock %}</title>
+<link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+<link rel="preload" href="{% static 'fonts/golos-text-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="{% static 'fonts/bricolage-grotesque-latin-wght-normal.woff2' %}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="{% static 'css/fonts.css' %}">
+<link rel="stylesheet" href="{% static 'css/tokens.css' %}">
+<link rel="stylesheet" href="{% static 'css/base.css' %}">
+{% block head %}{% endblock %}
+</head>
+<body>
+<svg class="sprite" aria-hidden="true" focusable="false">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h5v-6h4v6h5V10"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21l7.8-7.5 1-1.1a5.5 5.5 0 000-7.8z"/></symbol>
+    <symbol id="i-cart" viewBox="0 0 24 24"><circle cx="9" cy="21" r="1.5"/><circle cx="19" cy="21" r="1.5"/><path d="M2 3h3l2.7 12.4a2 2 0 002 1.6h8.6a2 2 0 002-1.5L22 7H6"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></symbol>
+    <symbol id="i-trend" viewBox="0 0 24 24"><polyline points="3 17 9 11 13 15 21 6"/><polyline points="15 6 21 6 21 12"/></symbol>
+  </defs>
+</svg>
+<div class="headbar">
+<header class="top">
+  <a class="logo" href="/" aria-label="Narx kuzatuvchi, bosh sahifa"><span class="logo-mark"><svg class="ic" aria-hidden="true"><use href="#i-trend"/></svg></span><span class="logo-text">narx kuzatuvchi<small>Namangan</small></span></a>
+  <form class="search" role="search" action="/" onsubmit="return false">
+    <svg class="ic search-ic" aria-hidden="true"><use href="#i-search"/></svg>
+    <input id="nav-search" type="search" placeholder="Mahsulot qidirish" autocomplete="off" aria-label="Mahsulot qidirish" aria-controls="search-results" aria-expanded="false">
+    <ul id="search-results" class="search-results" role="listbox" hidden></ul>
+  </form>
+  <nav class="nav-links" aria-label="Bo'limlar">
+    <a href="/#cats">Katalog</a>
+    <a href="{% url 'confirm_prices' %}"{% if request.path == '/tasdiqlash/' %} aria-current="page"{% endif %}>Narx to'g'rimi?</a>
+    <a href="/#add-price">Narx qo'shish</a>
+  </nav>
+  <div class="head-icons">
+    <a class="nav-ic" href="/favorites/" aria-label="Saralangan"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-heart"/></svg><b class="cnt" data-count="fav" hidden>0</b></a>
+    <a class="nav-ic" href="/cart/" aria-label="Savat"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-cart"/></svg><b class="cnt" data-count="cart" hidden>0</b></a>
+  </div>
+  <div class="user">
+    {% if user.is_authenticated %}
+      <a class="btn" href="{% url 'settings' %}"><svg class="ic" aria-hidden="true"><use href="#i-user"/></svg><span>{{ user.username }}</span></a>
+    {% else %}
+      <a class="signin" href="/login/?next={{ request.path|urlencode }}">Kirish</a>
+      <a class="btn primary signup" href="/signup/">Ro'yxatdan o'tish</a>
+    {% endif %}
+  </div>
+</header>
+</div>
+<main>
+{% if messages %}{% for m in messages %}<div class="flash {{ m.tags }}" role="status">{{ m }}</div>{% endfor %}{% endif %}
+{% block content %}{% endblock %}
+</main>
+<nav class="tabbar" aria-label="Asosiy menyu">
+  <a href="/"{% if request.path == '/' %} aria-current="page"{% endif %}><svg class="ic ic-lg" aria-hidden="true"><use href="#i-home"/></svg><span>Bosh</span></a>
+  <a href="/#cats"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-grid"/></svg><span>Katalog</span></a>
+  <a href="/#add-price"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-plus"/></svg><span>Qo'shish</span></a>
+  <a href="{% url 'confirm_prices' %}"{% if request.path == '/tasdiqlash/' %} aria-current="page"{% endif %}><svg class="ic ic-lg" aria-hidden="true"><use href="#i-check"/></svg><span>To'g'rimi?</span></a>
+  {% if user.is_authenticated %}<a href="{% url 'settings' %}"{% if request.path == '/settings/' %} aria-current="page"{% endif %}><svg class="ic ic-lg" aria-hidden="true"><use href="#i-user"/></svg><span>Profil</span></a>
+  {% else %}<a href="/login/?next={{ request.path|urlencode }}"><svg class="ic ic-lg" aria-hidden="true"><use href="#i-user"/></svg><span>Kirish</span></a>{% endif %}
+</nav>
+<script src="{% static 'js/app.js' %}"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

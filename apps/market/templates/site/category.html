@@ -1,0 +1,44 @@
+{% extends "site/base.html" %}
+{% load market_extras %}
+{% block title %}{{ category.name }} — Narx kuzatuvchi{% endblock %}
+{% block content %}
+<nav class="crumbs" aria-label="Yo'l"><a href="/">Bosh sahifa</a> <span>›</span>
+  {% if parent %}<a href="{% url 'category_detail' parent.slug %}">{{ parent.name }}</a> <span>›</span> {% endif %}
+  <span>{{ category.name }}</span></nav>
+<h1 class="page-title">{{ category.name }}</h1>
+
+{% if subcategories %}
+<div class="chips-mini" aria-label="Ichki kategoriyalar">
+  {% for s in subcategories %}
+  <a class="chip" href="{% url 'category_detail' s.slug %}">{{ s.name }} <span class="muted">({{ s.product_count }})</span></a>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if items %}
+<div class="deal-grid">
+  {% for it in items %}
+  <article class="pcard">
+    <button class="heart" type="button" data-fav="{{ it.product.pk }}" aria-pressed="false" aria-label="Saralanganlarga qo'shish"><svg class="ic"><use href="#i-heart"/></svg></button>
+    <div class="pic">
+      {% if it.product.image %}<img src="{{ it.product.image.url }}" alt="{{ it.product.name }}" loading="lazy">
+      {% else %}<span class="ph" aria-hidden="true">{{ it.product.name|slice:":1"|upper }}</span>{% endif %}
+    </div>
+    <div class="body">
+      <a class="name" href="{% url 'product_detail' it.product.pk %}">{{ it.product.name }}</a>
+      {% if it.best_offer %}
+        <div class="now">{{ it.best_offer.entry.price|money }} <small>so'm / {{ it.best_offer.entry.quantity|floatformat:"-3" }} {{ it.best_offer.entry.get_unit_display }}</small></div>
+        {% include "site/_delta.html" with change=it.best_offer.change %}
+        <div class="where">{{ it.best_offer.location.name }}{% if it.offer_count > 1 %} · yana {{ it.offer_count|add:"-1" }} ta joyda{% endif %}</div>
+      {% else %}
+        <div class="where">Narx hali kiritilmagan</div>
+      {% endif %}
+      <div class="card-acts"><button class="tocart" type="button" data-cart="{{ it.product.pk }}"><span class="lbl">Savatga</span></button></div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<p class="empty">Bu kategoriyada hozircha mahsulot yo'q.</p>
+{% endif %}
+{% endblock %}

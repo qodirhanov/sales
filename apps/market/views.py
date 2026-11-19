@@ -1,10 +1,7 @@
-"""Read API on the new models, returning the SAME JSON shapes as the legacy /api/ so the existing
-pages and app.js work unchanged. Mounted at /api/v2/.
+"""Read API: catalog, cheapest offers, trend, deals and basket comparison.
 
-Compatibility notes (all temporary, until the pages are switched and the legacy app is removed):
-  * "district" in the API is the new City (id and name), because Place has a city and no district.
-  * Unit codes are emitted in the legacy spelling (litr -> l, dona -> piece), see selectors.UNIT_OUT.
-  * Category emoji is always empty and categories are flat (parent is null).
+Compatibility notes: "district" in the API is the City (a Place has a city and no district), unit codes are
+emitted as kg/g/l/ml/piece/qop (see selectors.UNIT_OUT), and categories are flat (parent is null).
 """
 from collections import defaultdict
 from datetime import datetime, time, timedelta
@@ -21,7 +18,6 @@ from rest_framework import filters as drf_filters
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
-from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -30,6 +26,7 @@ from apps.catalog.textnorm import search_tokens
 from apps.reports.models import PriceReport
 
 from . import selectors as sel
+from .pagination import StandardPagination
 from .selectors import api_unit
 
 BASE_UNIT_OUT = {"kg": "kg", "litr": "l", "dona": "piece"}
@@ -39,12 +36,6 @@ def _abs_image(request, image):
     if not image:
         return None
     return request.build_absolute_uri(image.url) if request else image.url
-
-
-class StandardPagination(PageNumberPagination):
-    page_size = 20
-    page_size_query_param = "page_size"
-    max_page_size = 200
 
 
 # ---------------------------------------------------------------- serializers
@@ -347,21 +338,6 @@ class DealsView(APIView):
                 "reason": why, "saving_pct": value,
             })
         return Response({"results": results})
-
-
-class ProductIdMapView(APIView):
-    """{"to_v2": {legacy id: new id}, "to_legacy": {new id: legacy id}}, matched by product name.
-    Lets the browser translate saved favorites and cart when the site switches catalogs."""
-    permission_classes = []
-    authentication_classes = []
-
-    def get(self, request):
-        from prices.models import Product as LegacyProduct
-        new = dict(Product.objects.values_list("name", "id"))
-        pairs = [(legacy_id, new[name]) for name, legacy_id in LegacyProduct.objects.values_list("name", "id")
-                 if name in new]
-        return Response({"to_v2": {str(old): fresh for old, fresh in pairs},
-                         "to_legacy": {str(fresh): old for old, fresh in pairs}})
 
 
 BASKET_MAX_ITEMS = 50

@@ -29,10 +29,6 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
-# Read prices from the new apps.* models (/api/v2/) instead of the legacy app. Reads only: price entry and
-# confirmation still write to the legacy tables, so keep this off in production until they move too.
-USE_NEW_API = config('USE_NEW_API', default=False, cast=bool)
-
 
 # Application definition
 
@@ -46,7 +42,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'django_filters',
-    'prices',  # legacy app, replaced step by step by apps.*
     'apps.accounts',
     'apps.catalog',
     'apps.reports',
@@ -77,7 +72,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'apps.market.context.api_flags',
             ],
         },
     },
@@ -163,7 +157,7 @@ REST_FRAMEWORK = {
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'prices.pagination.StandardPagination',
+    'DEFAULT_PAGINATION_CLASS': 'apps.market.pagination.StandardPagination',
     'PAGE_SIZE': 20,
     'DEFAULT_THROTTLE_CLASSES': [],
     'DEFAULT_THROTTLE_RATES': {

@@ -4,7 +4,7 @@
 (function () {
   "use strict";
 
-  var API_READ = document.documentElement.dataset.api || "/api/";   /* read endpoints: legacy or v2 */
+  var API = "/api/";
   var UNIT_LABEL = { kg: "kg", g: "g", l: "litr", ml: "ml", piece: "dona", qop: "qop" };
   var TYPE_LABEL = { bazaar: "Bozor", shop: "Do'kon", supermarket: "Supermarket" };
 
@@ -51,7 +51,7 @@
   }
   /* GET /api/<path>, unwrapping DRF pagination. */
   function api(path) {
-    return request(API_READ + path).then(function (d) { return Array.isArray(d) ? d : (d.results !== undefined ? d.results : d); });
+    return request(API + path).then(function (d) { return Array.isArray(d) ? d : (d.results !== undefined ? d.results : d); });
   }
   function reason(err) {
     if (err && err.status === 0) return "Internet yo'q shekilli. Ulanishni tekshiring.";
@@ -122,8 +122,8 @@
   function productInfo(id) {
     if (!infoCache[id]) {
       infoCache[id] = Promise.all([
-        request(API_READ + "products/" + id + "/").catch(function (e) { if (e.status === 404) return null; throw e; }),
-        request(API_READ + "products/" + id + "/cheapest/?days=30").catch(function (e) { if (e.status === 404) return null; throw e; }),
+        request(API + "products/" + id + "/").catch(function (e) { if (e.status === 404) return null; throw e; }),
+        request(API + "products/" + id + "/cheapest/?days=30").catch(function (e) { if (e.status === 404) return null; throw e; }),
       ]).then(function (x) { return { p: x[0], offer: x[1] && x[1].results && x[1].results[0] }; })
         .catch(function (e) { delete infoCache[id]; throw e; });
     }
@@ -133,7 +133,7 @@
   /* ---------- trend chart (Chart.js is optional; a text fallback is shown without it) ---------- */
   function trend(o) {
     /* o: {product, district?, unitLabel, canvas, box, empty} */
-    var url = API_READ + "products/" + o.product + "/trend/?days=30" + (o.district ? "&district=" + encodeURIComponent(o.district) : "");
+    var url = API + "products/" + o.product + "/trend/?days=30" + (o.district ? "&district=" + encodeURIComponent(o.district) : "");
     return request(url).then(function (r) {
       var pts = r.points || [];
       o.box.hidden = true; o.empty.hidden = true;
@@ -198,7 +198,7 @@
       if (!v) { close(); return; }
       if (ctrl) ctrl.abort();
       ctrl = window.AbortController ? new AbortController() : null;
-      request(API_READ + "products/?page_size=8&search=" + encodeURIComponent(v), ctrl ? { signal: ctrl.signal } : {})
+      request(API + "products/?page_size=8&search=" + encodeURIComponent(v), ctrl ? { signal: ctrl.signal } : {})
         .then(function (d) { if (q.value.trim() === v) show(d.results || []); })
         .catch(function (e) {
           if (e.name === "AbortError") return;
@@ -221,27 +221,8 @@
     document.addEventListener("click", function (e) { if (!e.target.closest(".search")) close(); });
   }
 
-  /* Saved favorites and cart hold product ids. The legacy and the new catalog number products differently, so when
-     the site switches between them (USE_NEW_API) the saved ids are translated once, matching products by name.
-     localStorage "nk_ids" remembers which numbering the saved ids use; nothing saved before it existed is legacy. */
-  function remapIds() {
-    var mode = API_READ === "/api/" ? "legacy" : "v2", stored = null;
-    try { stored = localStorage.getItem("nk_ids"); } catch (e) { /* storage blocked: nothing saved anyway */ }
-    function remember() { try { localStorage.setItem("nk_ids", mode); } catch (e) { /* ignore */ } }
-    if ((stored || "legacy") === mode) { if (!stored) remember(); return; }
-    if (!fav.length && !Object.keys(cart).length) { remember(); return; }
-    request("/api/v2/product-id-map/").then(function (m) {
-      var map = mode === "v2" ? m.to_v2 : m.to_legacy;
-      fav = fav.map(function (id) { return map[id]; }).filter(Boolean);
-      var moved = {};
-      Object.keys(cart).forEach(function (id) { if (map[id]) moved[map[id]] = cart[id]; });
-      cart = moved;
-      save("nk_fav", fav); save("nk_cart", cart); remember(); infoCache = {}; emit();
-    }).catch(function () { /* offline: keep the old ids and try again on the next page load */ });
-  }
-
   var NK = window.NK = {
-    API_READ: API_READ, NEW_API: API_READ !== "/api/", UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
+    UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
     money: money, esc: esc, safeUrl: safeUrl, cookie: cookie, ago: ago,
     request: request, api: api, fail: fail, formProblem: formProblem, delta: delta,
     productInfo: productInfo, trend: trend, sync: sync,
@@ -254,5 +235,4 @@
     clearCart: function () { cart = {}; save("nk_cart", cart); emit(); },
   };
   initSearch();
-  remapIds();
 })();

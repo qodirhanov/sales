@@ -1,25 +1,24 @@
-"""v2 write API (submit a price, confirm one) and the pages that depend on it, with USE_NEW_API on."""
+"""Write API (submit a price, confirm one) and the pages that depend on it."""
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.test import override_settings
 from rest_framework.test import APIClient
 
 from apps.catalog.models import Place, Product
 from apps.reports.models import Confirmation, PriceReport
 
-from .tests import ParityBase
+from .testing import MarketBase
 
 User = get_user_model()
 
 
-class WriteBase(ParityBase):
+class WriteBase(MarketBase):
     @classmethod
     def setUpTestData(cls):
         super().setUpTestData()
         cls.newbie = User.objects.create_user("newbie", password="pw")
         cls.place = Place.objects.get(name="Chorsu bozori")     # has coordinates 41.0, 71.67
-        cls.meat2 = Product.objects.get(name="Mol go'shti")
-        cls.oil2 = Product.objects.get(name="Paxta yog'i")
+        cls.meat2 = cls.meat
+        cls.oil2 = cls.oil
 
     def setUp(self):
         cache.clear()  # throttle counters live in the cache and user ids repeat between tests
@@ -29,12 +28,12 @@ class WriteBase(ParityBase):
     def post(self, **over):
         body = {"product": self.meat2.pk, "location": self.place.pk, "price": 98000, "quantity": 1, "unit": "kg"}
         body.update(over)
-        return self.client.post("/api/v2/prices/", body, format="json")
+        return self.client.post("/api/prices/", body, format="json")
 
 
 class SubmitTests(WriteBase):
     def test_requires_login(self):
-        r = APIClient().post("/api/v2/prices/", {}, format="json")
+        r = APIClient().post("/api/prices/", {}, format="json")
         self.assertIn(r.status_code, (401, 403))
 
     def test_any_logged_in_user_can_submit_and_starts_pending(self):
@@ -101,7 +100,7 @@ class SubmitTests(WriteBase):
     def test_far_off_price_is_flagged_and_hidden_from_lists(self):
         r = self.post(price=400000)             # median is ~100 000, deviation far above 40%
         self.assertEqual(r.json()["status"], "flagged")
-        cheapest = self.client.get(f"/api/v2/products/{self.meat2.pk}/cheapest/?days=30").json()["results"]
+        cheapest = self.client.get(f"/api/products/{self.meat2.pk}/cheapest/?days=30").json()["results"]
         self.assertNotIn(400000, [int(float(x["price"])) for x in cheapest])
 
     def test_response_shows_what_others_reported(self):
@@ -120,7 +119,7 @@ class ConfirmTests(WriteBase):
         c = APIClient()
         if user:
             c.force_authenticate(user)
-        return c.post(f"/api/v2/prices/{pk or self.report_id}/confirm/")
+        return c.post(f"/api/prices/{pk or self.report_id}/confirm/")
 
     def test_requires_login(self):
         self.assertIn(self.vote(None).status_code, (401, 403))
@@ -152,7 +151,6 @@ class ConfirmTests(WriteBase):
         self.assertEqual(self.vote(self.voters[0], pk=999999).status_code, 404)
 
 
-@override_settings(USE_NEW_API=True)
 class PagesOnNewWritesTests(WriteBase):
     def setUp(self):
         super().setUp()
@@ -185,7 +183,7 @@ class PagesOnNewWritesTests(WriteBase):
         APIClient()
         voter = APIClient()
         voter.force_authenticate(self.viewer)
-        voter.post(f"/api/v2/prices/{self.pending}/confirm/")
+        voter.post(f"/api/prices/{self.pending}/confirm/")
         self.client.force_login(self.viewer)
         ids = [i["entry"].pk for i in self.client.get("/tasdiqlash/").context["items"]]
         self.assertNotIn(self.pending, ids)
@@ -197,13 +195,13 @@ class PagesOnNewWritesTests(WriteBase):
     def test_confirm_page_counts_my_confirmations(self):
         voter = APIClient()
         voter.force_authenticate(self.viewer)
-        voter.post(f"/api/v2/prices/{self.pending}/confirm/")
+        voter.post(f"/api/prices/{self.pending}/confirm/")
         self.client.force_login(self.viewer)
         self.assertEqual(self.client.get("/tasdiqlash/").context["my_confirmed"], 1)
 
-    def test_confirm_page_js_posts_to_the_active_api(self):
+    def test_confirm_page_js_posts_to_the_api(self):
         self.client.force_login(self.viewer)
-        self.assertContains(self.client.get("/tasdiqlash/"), 'NK.API_READ + "prices/"')
+        self.assertContains(self.client.get("/tasdiqlash/"), '"/api/prices/"')
 
     def test_settings_page_counts_new_reports(self):
         self.client.force_login(self.newbie)
@@ -214,7 +212,6 @@ class PagesOnNewWritesTests(WriteBase):
         self.assertContains(r, "Mol go")
 
 
-@override_settings(USE_NEW_API=True)
 class SettingsProfileTests(WriteBase):
     def setUp(self):
         super().setUp()

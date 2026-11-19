@@ -1,4 +1,4 @@
-"""Price alerts on the new models: the API (/api/v2/alerts/) and the delivery logic behind `check_alerts`."""
+"""Price alerts on the new models: the API (/api/alerts/) and the delivery logic behind `check_alerts`."""
 from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone

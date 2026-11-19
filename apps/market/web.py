@@ -1,36 +1,36 @@
-"""Server-rendered pages on the new models, and the switch that chooses them over the legacy ones.
+"""Server-rendered pages: catalog, product, category, confirm, settings and the account pages.
 
-The templates are the same files as before: these views hand them the same context keys, so the
-pages look identical. Differences while both worlds exist: no category tree (the new Category is flat),
-no product image/description/usage, and "district" is simply absent.
+The pages are thin shells; prices and lists are filled in by app.js from /api/.
 """
+from datetime import timedelta
 from math import ceil
 
-from django.conf import settings
 from django.contrib import messages
+from django.contrib.auth import login
+from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.views import PasswordChangeView
 from django.db.models import Case, Count, IntegerField, Sum, When
 from django.shortcuts import get_object_or_404, redirect
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import ensure_csrf_cookie
+from django.urls import reverse_lazy
 from django.utils import timezone
-from django.views.generic import TemplateView
+from django.utils.decorators import method_decorator
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.views.decorators.csrf import ensure_csrf_cookie
+from django.views.generic import FormView, TemplateView
 
-from datetime import timedelta
-
+from apps.accounts.models import UserProfile
+from apps.accounts.phone import normalize_phone
 from apps.catalog.models import Category, Product
 from apps.reports.models import Confirmation, PriceReport
 from apps.verification import constants as C
-from prices import web as legacy_web
-from apps.accounts.models import UserProfile
-from apps.accounts.phone import normalize_phone
 
 from . import selectors as sel
 
 
-@method_decorator(ensure_csrf_cookie, name="dispatch")
-class NewIndexView(TemplateView):
-    template_name = "prices/index.html"
+@method_decorator(ensure_csrf_cookie, name="dispatch")  # JS reads the csrftoken cookie for POSTs
+class IndexView(TemplateView):
+    template_name = "site/index.html"
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -40,8 +40,8 @@ class NewIndexView(TemplateView):
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
-class NewProductDetailView(TemplateView):
-    template_name = "prices/product_detail.html"
+class ProductDetailView(TemplateView):
+    template_name = "site/product_detail.html"
 
     def get_context_data(self, pk, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -53,8 +53,8 @@ class NewProductDetailView(TemplateView):
 
 
 @method_decorator(ensure_csrf_cookie, name="dispatch")
-class NewCategoryDetailView(TemplateView):
-    template_name = "prices/category.html"
+class CategoryDetailView(TemplateView):
+    template_name = "site/category.html"
 
     def get_context_data(self, slug, **kwargs):
         ctx = super().get_context_data(**kwargs)
@@ -75,9 +75,10 @@ class NewCategoryDetailView(TemplateView):
         return ctx
 
 
-class NewConfirmPricesView(LoginRequiredMixin, TemplateView):
+@method_decorator(ensure_csrf_cookie, name="dispatch")  # JS posts to /api/prices/<id>/confirm/
+class ConfirmPricesView(LoginRequiredMixin, TemplateView):
     """Open reports by other people that this user has not confirmed yet; suspicious ones first."""
-    template_name = "prices/confirm.html"
+    template_name = "site/confirm.html"
     login_url = "/login/"
     LIMIT = 30
     DAYS = 7
@@ -112,8 +113,53 @@ class NewConfirmPricesView(LoginRequiredMixin, TemplateView):
         return ctx
 
 
-class NewSettingsView(legacy_web.SettingsView):
-    """Same page on the new models: price count and list from reports, shop name and phone on UserProfile."""
+# ---------------------------------------------------------------- account pages
+class SignupForm(UserCreationForm):
+    """Username + password only for now. Phone/Telegram login will replace this later."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["username"].label = "Login"
+        self.fields["username"].help_text = "Harf, raqam va @ . + - _ belgilari, 150 tagacha."
+        self.fields["password1"].label = "Parol"
+        self.fields["password1"].help_text = "Kamida 8 ta belgi, faqat raqamdan iborat bo'lmasin."
+        self.fields["password2"].label = "Parolni takrorlang"
+        self.fields["password2"].help_text = ""
+
+
+class SignupView(FormView):
+    template_name = "site/signup.html"
+    form_class = SignupForm
+
+    def dispatch(self, request, *args, **kwargs):
+        if request.user.is_authenticated:
+            return redirect("home")
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        user = form.save()
+        login(self.request, user)  # straight in, no second login step
+        nxt = self.request.POST.get("next") or "/"
+        if not url_has_allowed_host_and_scheme(nxt, allowed_hosts={self.request.get_host()}):
+            nxt = "/"  # block open redirects
+        return redirect(nxt)
+
+
+class AppPasswordChangeView(LoginRequiredMixin, PasswordChangeView):
+    template_name = "site/password_change.html"
+    success_url = reverse_lazy("settings")
+    login_url = "/login/"
+
+    def form_valid(self, form):
+        messages.success(self.request, "Parol muvaffaqiyatli o'zgartirildi.")
+        return super().form_valid(form)
+
+
+@method_decorator(ensure_csrf_cookie, name="dispatch")
+class SettingsView(LoginRequiredMixin, TemplateView):
+    """Own prices and optional shop details (shop name, phone) on the reputation profile."""
+    template_name = "site/settings.html"
+    login_url = "/login/"
     SHOP_NAME_MAX = UserProfile._meta.get_field("shop_name").max_length
 
     def post(self, request, *args, **kwargs):
@@ -150,7 +196,7 @@ class NewSettingsView(legacy_web.SettingsView):
         return redirect("settings")
 
     def get_context_data(self, **kwargs):
-        ctx = TemplateView.get_context_data(self, **kwargs)
+        ctx = super().get_context_data(**kwargs)
         user = self.request.user
         profile, _ = UserProfile.objects.get_or_create(user=user)
         mine = PriceReport.objects.filter(user=user)
@@ -163,24 +209,3 @@ class NewSettingsView(legacy_web.SettingsView):
             for r in mine.select_related("product", "place").order_by("-created_at", "-id")[:10]
         ]
         return ctx
-
-
-class _Switch:
-    """Behaves like a class-based view in urls.py; picks the implementation per request from the flag."""
-
-    def __init__(self, legacy_cls, new_cls):
-        self.legacy_cls, self.new_cls = legacy_cls, new_cls
-
-    def as_view(self, **initkwargs):
-        legacy_view, new_view = self.legacy_cls.as_view(**initkwargs), self.new_cls.as_view(**initkwargs)
-
-        def view(request, *args, **kwargs):
-            return (new_view if settings.USE_NEW_API else legacy_view)(request, *args, **kwargs)
-        return view
-
-
-IndexView = _Switch(legacy_web.IndexView, NewIndexView)
-ProductDetailView = _Switch(legacy_web.ProductDetailView, NewProductDetailView)
-CategoryDetailView = _Switch(legacy_web.CategoryDetailView, NewCategoryDetailView)
-ConfirmPricesView = _Switch(legacy_web.ConfirmPricesView, NewConfirmPricesView)
-SettingsView = _Switch(legacy_web.SettingsView, NewSettingsView)
