@@ -4,6 +4,7 @@
 (function () {
   "use strict";
 
+  var API_READ = document.documentElement.dataset.api || "/api/";   /* read endpoints: legacy or v2 */
   var UNIT_LABEL = { kg: "kg", g: "g", l: "litr", ml: "ml", piece: "dona", qop: "qop" };
   var TYPE_LABEL = { bazaar: "Bozor", shop: "Do'kon", supermarket: "Supermarket" };
 
@@ -50,7 +51,7 @@
   }
   /* GET /api/<path>, unwrapping DRF pagination. */
   function api(path) {
-    return request("/api/" + path).then(function (d) { return Array.isArray(d) ? d : (d.results !== undefined ? d.results : d); });
+    return request(API_READ + path).then(function (d) { return Array.isArray(d) ? d : (d.results !== undefined ? d.results : d); });
   }
   function reason(err) {
     if (err && err.status === 0) return "Internet yo'q shekilli. Ulanishni tekshiring.";
@@ -121,8 +122,8 @@
   function productInfo(id) {
     if (!infoCache[id]) {
       infoCache[id] = Promise.all([
-        request("/api/products/" + id + "/").catch(function (e) { if (e.status === 404) return null; throw e; }),
-        request("/api/products/" + id + "/cheapest/?days=30").catch(function (e) { if (e.status === 404) return null; throw e; }),
+        request(API_READ + "products/" + id + "/").catch(function (e) { if (e.status === 404) return null; throw e; }),
+        request(API_READ + "products/" + id + "/cheapest/?days=30").catch(function (e) { if (e.status === 404) return null; throw e; }),
       ]).then(function (x) { return { p: x[0], offer: x[1] && x[1].results && x[1].results[0] }; })
         .catch(function (e) { delete infoCache[id]; throw e; });
     }
@@ -132,7 +133,7 @@
   /* ---------- trend chart (Chart.js is optional; a text fallback is shown without it) ---------- */
   function trend(o) {
     /* o: {product, district?, unitLabel, canvas, box, empty} */
-    var url = "/api/products/" + o.product + "/trend/?days=30" + (o.district ? "&district=" + encodeURIComponent(o.district) : "");
+    var url = API_READ + "products/" + o.product + "/trend/?days=30" + (o.district ? "&district=" + encodeURIComponent(o.district) : "");
     return request(url).then(function (r) {
       var pts = r.points || [];
       o.box.hidden = true; o.empty.hidden = true;
@@ -197,7 +198,7 @@
       if (!v) { close(); return; }
       if (ctrl) ctrl.abort();
       ctrl = window.AbortController ? new AbortController() : null;
-      request("/api/products/?page_size=8&search=" + encodeURIComponent(v), ctrl ? { signal: ctrl.signal } : {})
+      request(API_READ + "products/?page_size=8&search=" + encodeURIComponent(v), ctrl ? { signal: ctrl.signal } : {})
         .then(function (d) { if (q.value.trim() === v) show(d.results || []); })
         .catch(function (e) {
           if (e.name === "AbortError") return;
@@ -221,7 +222,7 @@
   }
 
   var NK = window.NK = {
-    UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
+    API_READ: API_READ, UNIT_LABEL: UNIT_LABEL, TYPE_LABEL: TYPE_LABEL,
     money: money, esc: esc, safeUrl: safeUrl, cookie: cookie, ago: ago,
     request: request, api: api, fail: fail, formProblem: formProblem, delta: delta,
     productInfo: productInfo, trend: trend, sync: sync,

@@ -29,6 +29,10 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+# Read prices from the new apps.* models (/api/v2/) instead of the legacy app. Reads only: price entry and
+# confirmation still write to the legacy tables, so keep this off in production until they move too.
+USE_NEW_API = config('USE_NEW_API', default=False, cast=bool)
+
 
 # Application definition
 
@@ -72,6 +76,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'apps.market.context.api_flags',
             ],
         },
     },

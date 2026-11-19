@@ -110,6 +110,28 @@ def changes_for(targets):
 
 
 # ---------------------------------------------------------------- offers and deals
+def build_offer(report, cheapest_price=None, change=None):
+    """Dict consumed by the web templates (same keys as the legacy prices.services.build_offer)."""
+    link, kind = offer_link(report)
+    extra = 0
+    if cheapest_price:
+        extra = whole_pct(report.normalized_price - cheapest_price, cheapest_price)
+    return {
+        "entry": report, "location": report.place, "link": link, "link_kind": kind,
+        "is_cheapest": bool(cheapest_price) and report.normalized_price == cheapest_price,
+        "extra_pct": extra, "is_promo": report.is_promo, "old_price": report.old_price,
+        "discount_pct": discount_pct(report), "change": change,
+    }
+
+
+def build_offers(reports):
+    """Offers sorted by normalized price, from newest-first reports of ONE product."""
+    latest = sorted(latest_per_place(reports), key=lambda r: (r.normalized_price, -r.created_at.timestamp()))
+    cheapest = latest[0].normalized_price if latest else None
+    changes = attach_changes(latest, reports)
+    return [build_offer(r, cheapest, changes[r.pk]) for r in latest]
+
+
 def discount_pct(report):
     if report.is_promo and report.old_price and report.old_price > report.price:
         return whole_pct(report.old_price - report.price, report.old_price)

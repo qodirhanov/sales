@@ -52,7 +52,9 @@
 
   <section class="card" id="add-price">
     <h2>Narx qo'shish</h2>
-    {% if user.is_authenticated %}
+    {% if USE_NEW_API %}
+    <p class="muted">Narx kiritish yangi tizimga o'tkazilmoqda. Hozircha faqat ko'rish mumkin.</p>
+    {% elif user.is_authenticated %}
     <form id="add-form">
       <label>Mahsulot<select id="f-product" required></select></label>
       <label>Bozor / do'kon<select id="f-location" required></select></label>

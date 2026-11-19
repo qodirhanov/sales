@@ -73,7 +73,7 @@ async function renderBasket() {
   const body = { items: ids.map((id) => ({ product: Number(id), quantity: Number(cart[id]) })) };
   let r;
   try {
-    r = await NK.request("/api/basket/compare/", { method: "POST", json: body });
+    r = await NK.request(NK.API_READ + "basket/compare/", { method: "POST", json: body });
   } catch (e) {
     box.hidden = false;
     $("basket-list").innerHTML = "";

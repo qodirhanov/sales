@@ -195,3 +195,58 @@ class VisibilityTests(ParityBase):
         place.save()
         Product.objects.filter(name="Tuxum").update(is_active=False)
         self.assertEqual(self.api.get(f"/api/v2/products/{self.v2_product('Tuxum').pk}/").status_code, 404)
+
+
+from django.test import override_settings
+from apps.catalog.models import Category
+
+
+class PagesUnderFlagTests(ParityBase):
+    """Same templates, rendered from the new models when USE_NEW_API is on."""
+
+    def test_flag_off_by_default_and_pages_point_js_at_legacy_api(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn('data-api="/api/"', html)
+
+    @override_settings(USE_NEW_API=True)
+    def test_home_uses_new_categories_and_api_base(self):
+        html = self.client.get("/").content.decode()
+        self.assertIn('data-api="/api/v2/"', html)
+        self.assertIn("Go&#x27;sht", html)
+        self.assertIn("3 ta mahsulot", html)
+
+    @override_settings(USE_NEW_API=True)
+    def test_add_form_is_replaced_by_a_note_until_writes_move(self):
+        self.client.force_login(self.user)
+        html = self.client.get("/").content.decode()
+        self.assertNotIn('id="add-form"', html)
+        self.assertIn("yangi tizimga o", html)
+
+    @override_settings(USE_NEW_API=True)
+    def test_product_page_shows_offers_best_price_and_change(self):
+        pk = self.v2_product("Mol go'shti").pk
+        html = self.client.get(f"/product/{pk}/").content.decode()
+        self.assertIn("Mega do", html)           # cheapest place first
+        self.assertIn("70 000", html)
+        self.assertIn("▼", html)                # 100 000 -> 70 000
+        self.assertIn("30%", html)
+        self.assertIn("Eng arzon", html)
+        self.assertIn("Chorsu bozori", html)
+
+    @override_settings(USE_NEW_API=True)
+    def test_inactive_or_unknown_product_is_404(self):
+        self.assertEqual(self.client.get("/product/999999/").status_code, 404)
+
+    @override_settings(USE_NEW_API=True)
+    def test_category_page_lists_products_cheapest_first(self):
+        cat = Category.objects.get(slug="gosht")
+        html = self.client.get(f"/category/{cat.slug}/").content.decode()
+        for name in ("Mol go", "Paxta yog", "Tuxum"):
+            self.assertIn(name, html)
+        self.assertEqual(self.client.get("/category/yoq/").status_code, 404)
+
+    @override_settings(USE_NEW_API=True)
+    def test_cart_reads_basket_from_the_active_api(self):
+        html = self.client.get("/cart/").content.decode()
+        self.assertIn('NK.API_READ + "basket/compare/"', html)
+        self.assertIn('data-api="/api/v2/"', html)
