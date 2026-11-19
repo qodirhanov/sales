@@ -38,6 +38,7 @@ urlpatterns = [
     path('settings/', SettingsView.as_view(), name='settings'),
     path('settings/password/', AppPasswordChangeView.as_view(), name='password_change'),
     path('admin/', admin.site.urls),
+    path('api/v2/', include('apps.market.urls')),  # same JSON as /api/, on the new models
     path('api/', include('prices.urls')),
 ]
 

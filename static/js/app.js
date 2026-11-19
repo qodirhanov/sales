@@ -4,8 +4,8 @@
 (function () {
   "use strict";
 
-  var UNIT_LABEL = { kg: "kg", g: "g", l: "litr", ml: "ml", piece: "dona" };
-  var TYPE_LABEL = { bazaar: "Bozor", shop: "Do'kon" };
+  var UNIT_LABEL = { kg: "kg", g: "g", l: "litr", ml: "ml", piece: "dona", qop: "qop" };
+  var TYPE_LABEL = { bazaar: "Bozor", shop: "Do'kon", supermarket: "Supermarket" };
 
   /* ---------- formatting / safety ---------- */
   function money(n) { return String(Math.round(Number(n))).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }
