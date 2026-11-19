@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.utils import timezone
 
+from apps.verification import services as verification
+
 from .models import Confirmation, PriceReport
 
 
@@ -24,21 +26,22 @@ class PriceReportAdmin(admin.ModelAdmin):
     inlines = [ConfirmationInline]
     actions = ["mark_confirmed", "mark_rejected", "mark_flagged"]
 
-    def _set_status(self, request, queryset, status):
-        updated = queryset.update(status=status, status_changed_at=timezone.now())
-        self.message_user(request, f"{updated} ta xabar holati o'zgardi.")
-
     @admin.action(description="Tanlanganlarni tasdiqlangan qilish")
     def mark_confirmed(self, request, queryset):
-        self._set_status(request, queryset, PriceReport.Status.CONFIRMED)
+        for report in queryset.select_related("user"):
+            verification.mark_confirmed(report)
+        self.message_user(request, f"{queryset.count()} ta xabar tasdiqlandi.")
 
-    @admin.action(description="Tanlanganlarni rad etish")
+    @admin.action(description="Tanlanganlarni rad etish (muallif ishonchi kamayadi)")
     def mark_rejected(self, request, queryset):
-        self._set_status(request, queryset, PriceReport.Status.REJECTED)
+        for report in queryset.select_related("user"):
+            verification.reject_report(report)
+        self.message_user(request, f"{queryset.count()} ta xabar rad etildi.")
 
     @admin.action(description="Tanlanganlarni shubhali deb belgilash")
     def mark_flagged(self, request, queryset):
-        self._set_status(request, queryset, PriceReport.Status.FLAGGED)
+        updated = queryset.update(status=PriceReport.Status.FLAGGED, status_changed_at=timezone.now())
+        self.message_user(request, f"{updated} ta xabar shubhali deb belgilandi.")
 
 
 @admin.register(Confirmation)
