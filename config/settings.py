@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'apps.reports',
     'apps.stats',
     'apps.verification',
+    'apps.market',
 ]
 
 MIDDLEWARE = [
